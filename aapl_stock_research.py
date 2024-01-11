@@ -18,13 +18,18 @@ The predicted feature for this research is the adjusted close as this is the sta
 
 In this step, we are preparing the data to be used in training the models.
 
-Note that feature engineering has already been performed manually on this dataset to add in extra columns, and thus the resulting CSV file is already engineered.
+Note that feature engineering has already been performed manually on this dataset to add in extra columns, and thus the resulting CSV file is already engineered. I added in manually the column for Earnings (0 representing non-earnings the next day and 1 representing an earnings report the following day), and also predicted EPS (earnings per share) and actual EPS columns.
 
-Note also that our target adj close varies depending on the time frame we are trying to predict.
+Citation for AAPL stock inital data: https://www.kaggle.com/datasets/evangower/big-tech-stock-prices/?select=AAPL.csv
+
+Citation for Earnings, Predicted and Actual EPS data: https://www.alphaquery.com/stock/AAPL/earnings-history
+
+Note also that our target variable - actual adj close - varies depending on the time frame we are trying to predict as it shifts depending on how far out we are attempting to forecast.
 """
 
 import pandas as pd
 import numpy as np
+import seaborn as sns
 from datetime import datetime, timedelta
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
@@ -43,15 +48,29 @@ df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
 # Extract the timestamp from the datetime and convert it to float
 df_aapl['Date'] = df_aapl['Date'].apply(lambda x: x.timestamp())
 
-"""# Linear Regression Model
+"""# Visualization of features"""
+
+correlation_matrix = df_aapl.corr()
+
+plt.figure(figsize=(12, 8))
+
+# Create a heatmap using seaborn
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', linewidths=.5)
+
+plt.title('Correlation Matrix of AAPL Stock Features')
+plt.show()
+
+"""# I would like to do a feature seaborn correlation graph to see how correlated features are. Maybe PCA analysis too?
+
+# Linear Regression Model
 
 **Next Day Prediction (non-earnings eve)**
 
-Selects random rows (non-earnings) out of the total test suite of total rows being chosen (consistently 32 since this is the total amount of earnings rows contained in the dataset)
+Uses non-earnings eve rows (ie rows where the next day is not an earnings day) to forecast AAPL stock price predictions for the next day
 """
 
-# Shift the 'Adj Close' column to get the target variable for the next day
-# that is a non-earnings day
+# Assign the target adj close (what we are trying to predict)
+# to be the subsequent row's adjusted close on the following day
 df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-1)
 
 # Drop the last row to handle NaN values created by the shift
@@ -155,8 +174,25 @@ In the above graphs, we can see a very interested spread of our model's predicti
 
 Market volatility will likely become even more prevalent as time goes on, and thus is something that must be accounted for in making predictions. However, it is interesting that its visualization is so readily obvious in the above graphs.
 
-**Next Day Prediction (earnings eve)**
+#Next Day Prediction (earnings eve)
 """
+
+df_aapl = pd.read_csv('AAPL.csv')
+
+df_aapl = df_aapl.dropna(subset=['Date'])
+
+# Convert the 'Date' column to datetime type
+# df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
+
+# # Extract the timestamp from the datetime and convert it to float
+# df_aapl['Date'] = df_aapl['Date'].apply(lambda x: x.timestamp())
+
+# Assign the target adjusted close (ie what we are trying to predict)
+# to be the next day's adjusted close
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-1)
+
+# Drop the last row to handle NaN values created by the shift
+df_aapl = df_aapl.dropna()
 
 # Initialize an empty dataframe to store the selected rows (earnings rows and the subsequent row directly after
 # so we can see the effect of the earnings results on the stock price the next day)
@@ -234,7 +270,7 @@ actual_adj_value = 49.889595
 custom_values_scaled = scaler.transform(custom_values)
 
 # Make predictions with the linear regression model
-# for our custom values (test example 10/23/2018 predicting 10/24/2018)
+# for our custom values (test example 11/01/2018 predicting 11/02/2018 adj close)
 custom_predictions = linear_regression_model.predict(custom_values_scaled)
 
 # Print the predictions
@@ -269,9 +305,603 @@ plt.show()
 
 Similar to the above non-earnings eve results, we can see that our linear regression model performs much more accurately when the actual adjusted close price is lower, and becomes more erratic as the share price increases, ie time goes on. Besides having much fewer data points to work with, earnings is particularly interesting as it is readily known that even if a company beats earnings estimates, the stock price can still decrease based on the whims of the market and other external factors, thus, achieving accuracy with the linear regression model for this application is difficult but intriguing. As in recent years past, with increased market volatility we can see this trend demonstrated yet again across both the cross-validated prediction and predicted adjusted close vs actual.
 
-**Next Month Stock Prediction**
+#Next Month Stock Prediction (non-earnings)
 
-**Next Year Stock Prediction**
-
-**Next Decade Stock Prediction**
+Note that the shift for the monthly data is not quite as linear as simply shifting over by 1 for the subsequent day due to varying month length. Instead, an average has been taken between different months to use an approximation of the number of market open days that elaspses in a monthly interval. An approximation of 22 market open days between monthly intervals was found to best estimate this shift.
 """
+
+# Reset the df back to pre-shift to prepare for the monthly shift
+df_aapl = pd.read_csv('AAPL.csv')
+
+df_aapl = df_aapl.dropna(subset=['Date'])
+
+# Convert the 'Date' column to datetime type
+df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
+
+# Extract the timestamp from the datetime and convert it to float
+df_aapl['Date'] = df_aapl['Date'].apply(lambda x: x.timestamp())
+
+# Assign the target adj close (what we are trying to predict)
+# to be the adjusted close of the row approximately 22 business (market open) days later
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-22)
+
+# Drop the last row to handle NaN values created by the shift
+df_aapl = df_aapl.dropna()
+
+print("after tail")
+print(df_aapl.tail(35))
+
+# Only keep the  non-earnings rows (ie where Earnings != 1)
+df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+
+# Separate the features (X) and target variable (y) which is the target adjusted close
+# see report / text comments for further explanation
+y_aapl = df_aapl_non['Target Adj Close']
+
+# Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
+# since we are not considered earnings per share (EPS) estimates
+X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+
+# Create a StandardScaler
+scaler = StandardScaler()
+
+# Fit and transform the scaler on the training data
+X_train_scaled = scaler.fit_transform(X_train)
+
+# Transform the test data using the scaler
+X_test_scaled = scaler.transform(X_test)
+
+# Create a linear regression model
+linear_regression_model = LinearRegression()
+
+# Perform cross-validated predictions
+predicted = cross_val_predict(linear_regression_model, X_aapl, y_aapl, cv=10)
+
+# Train the regression model on the scaled training data
+linear_regression_model.fit(X_train_scaled, y_train)
+
+# Make predictions on the scaled test data
+predictions = linear_regression_model.predict(X_test_scaled)
+
+# Create a DataFrame with cross-validated predictions
+results_df = pd.DataFrame({'Predicted': predictions, 'Actual': y_test})
+# Zip the predictions and test values together for ease
+results_tuples = list(zip(predictions, y_test))
+
+# This accuracy represents how "off" the results are between our prediction for each row and the actual value
+# of the adjusted close (using abs val)
+Abs_accuracy = (1 - np.abs(1 - results_df['Predicted'] / results_df['Actual']))
+print("Overall modified Accuracy")
+print(np.mean(Abs_accuracy))
+
+# Evaluate the performance of the regression model
+mse = mean_squared_error(y_test, predictions)
+print(f"Mean Squared Error (adj price in dollars amount off): {mse}")
+
+# Takes in open, high, low, close, volume, earnings (0 for non earnings tomorrow 1 for earnings tomorrow)
+# below is an example value of a non-earnings day sequence provided as an example (10/23/2018)
+custom_values = np.array([[53.957500,55.812500,53.674999,55.682499,155071200,0]])
+
+# This would be the next day after the above date (10/24/2018)
+actual_adj_value = 51.719452
+
+# Scale the custom input values using a standard scaker
+custom_values_scaled = scaler.transform(custom_values)
+
+# Make predictions with the linear regression model
+# for our custom values (test example 10/23/2018 predicting 10/24/2018)
+custom_predictions = linear_regression_model.predict(custom_values_scaled)
+
+# Print the predictions
+print("Custom Predictions:")
+print(custom_predictions)
+
+print("Accuracy of Custom Prediction:")
+print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
+
+# Plot the results of cross-validated predictions
+plt.scatter(y_aapl, predicted, color='blue', label='Cross-validated predictions')
+plt.plot([y_aapl.min(), y_aapl.max()], [y_aapl.min(), y_aapl.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+plt.xlabel('Actual')
+plt.ylabel('Predicted')
+plt.title('Cross-validated Predictions vs. Actual')
+plt.legend()
+plt.show()
+
+# Plot the actual difference between the predicted and actual adjusted close
+plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
+
+# Plot a diagonal line representing perfect predictions
+plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], [results_df['Actual'].min(), results_df['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+
+plt.xlabel('Actual Adjusted Close')
+plt.ylabel('Predicted Adjusted Close')
+plt.title('Actual vs Predicted Adjusted Close')
+plt.legend()
+plt.show()
+
+"""#Next Year Stock Prediction (non-earnings)
+
+A year shift should be 22 x 12 = 264 business days?
+"""
+
+# Reset the df back to pre-shift to prepare for the monthly shift
+df_aapl = pd.read_csv('AAPL.csv')
+
+df_aapl = df_aapl.dropna(subset=['Date'])
+
+# Convert the 'Date' column to datetime type
+# df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
+
+# # Extract the timestamp from the datetime and convert it to float
+# df_aapl['Date'] = df_aapl['Date'].apply(lambda x: x.timestamp())
+
+# Assign the target adj close (what we are trying to predict)
+# to be the adjusted close of the row approximately 22 business (market open) days later
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-250)
+
+# Drop the last row to handle NaN values created by the shift
+df_aapl = df_aapl.dropna()
+
+print("after tail")
+print(df_aapl.tail(35))
+
+# Only keep the  non-earnings rows (ie where Earnings != 1)
+df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+
+# Separate the features (X) and target variable (y) which is the target adjusted close
+# see report / text comments for further explanation
+y_aapl = df_aapl_non['Target Adj Close']
+
+# Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
+# since we are not considered earnings per share (EPS) estimates
+X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+
+# Create a StandardScaler
+scaler = StandardScaler()
+
+# Fit and transform the scaler on the training data
+X_train_scaled = scaler.fit_transform(X_train)
+
+# Transform the test data using the scaler
+X_test_scaled = scaler.transform(X_test)
+
+# Create a linear regression model
+linear_regression_model = LinearRegression()
+
+# Perform cross-validated predictions
+predicted = cross_val_predict(linear_regression_model, X_aapl, y_aapl, cv=10)
+
+# Train the regression model on the scaled training data
+linear_regression_model.fit(X_train_scaled, y_train)
+
+# Make predictions on the scaled test data
+predictions = linear_regression_model.predict(X_test_scaled)
+
+# Create a DataFrame with cross-validated predictions
+results_df = pd.DataFrame({'Predicted': predictions, 'Actual': y_test})
+# Zip the predictions and test values together for ease
+results_tuples = list(zip(predictions, y_test))
+
+# This accuracy represents how "off" the results are between our prediction for each row and the actual value
+# of the adjusted close (using abs val)
+Abs_accuracy = (1 - np.abs(1 - results_df['Predicted'] / results_df['Actual']))
+print("Overall modified Accuracy")
+print(np.mean(Abs_accuracy))
+
+# Evaluate the performance of the regression model
+mse = mean_squared_error(y_test, predictions)
+print(f"Mean Squared Error (adj price in dollars amount off): {mse}")
+
+# Takes in open, high, low, close, volume, earnings (0 for non earnings tomorrow 1 for earnings tomorrow)
+# below is an example value of a non-earnings day sequence provided as an example (10/23/2018)
+custom_values = np.array([[53.957500,55.812500,53.674999,55.682499,155071200,0]])
+
+# This would be the next day after the above date (10/24/2018)
+actual_adj_value = 51.719452
+
+# Scale the custom input values using a standard scaker
+custom_values_scaled = scaler.transform(custom_values)
+
+# Make predictions with the linear regression model
+# for our custom values (test example 10/23/2018 predicting 10/24/2018)
+custom_predictions = linear_regression_model.predict(custom_values_scaled)
+
+# Print the predictions
+print("Custom Predictions:")
+print(custom_predictions)
+
+print("Accuracy of Custom Prediction:")
+print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
+
+# Plot the results of cross-validated predictions
+plt.scatter(y_aapl, predicted, color='blue', label='Cross-validated predictions')
+plt.plot([y_aapl.min(), y_aapl.max()], [y_aapl.min(), y_aapl.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+plt.xlabel('Actual')
+plt.ylabel('Predicted')
+plt.title('Cross-validated Predictions vs. Actual')
+plt.legend()
+plt.show()
+
+# Plot the actual difference between the predicted and actual adjusted close
+plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
+
+# Plot a diagonal line representing perfect predictions
+plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], [results_df['Actual'].min(), results_df['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+
+plt.xlabel('Actual Adjusted Close')
+plt.ylabel('Predicted Adjusted Close')
+plt.title('Actual vs Predicted Adjusted Close')
+plt.legend()
+plt.show()
+
+"""#Next Decade Stock Prediction (non-earnings)
+
+Make sure to check that rows are not going off the edge and our data is appropriately scoped.
+"""
+
+# Reset the df back to pre-shift to prepare for the monthly shift
+df_aapl = pd.read_csv('AAPL.csv')
+
+df_aapl = df_aapl.dropna(subset=['Date'])
+
+# Convert the 'Date' column to datetime type
+# df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
+
+# # Extract the timestamp from the datetime and convert it to float
+# df_aapl['Date'] = df_aapl['Date'].apply(lambda x: x.timestamp())
+
+# Assign the target adj close (what we are trying to predict)
+# to be the adjusted close of the row approximately 22 business (market open) days later
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
+
+# Drop the last row to handle NaN values created by the shift
+df_aapl = df_aapl.dropna()
+
+print("after tail")
+print(df_aapl.tail(35))
+
+# Only keep the  non-earnings rows (ie where Earnings != 1)
+df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+
+# Separate the features (X) and target variable (y) which is the target adjusted close
+# see report / text comments for further explanation
+y_aapl = df_aapl_non['Target Adj Close']
+
+# Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
+# since we are not considered earnings per share (EPS) estimates
+X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+
+# Create a StandardScaler
+scaler = StandardScaler()
+
+# Fit and transform the scaler on the training data
+X_train_scaled = scaler.fit_transform(X_train)
+
+# Transform the test data using the scaler
+X_test_scaled = scaler.transform(X_test)
+
+# Create a linear regression model
+linear_regression_model = LinearRegression()
+
+# Perform cross-validated predictions
+predicted = cross_val_predict(linear_regression_model, X_aapl, y_aapl, cv=10)
+
+# Train the regression model on the scaled training data
+linear_regression_model.fit(X_train_scaled, y_train)
+
+# Make predictions on the scaled test data
+predictions = linear_regression_model.predict(X_test_scaled)
+
+# Create a DataFrame with cross-validated predictions
+results_df = pd.DataFrame({'Predicted': predictions, 'Actual': y_test})
+# Zip the predictions and test values together for ease
+results_tuples = list(zip(predictions, y_test))
+
+# This accuracy represents how "off" the results are between our prediction for each row and the actual value
+# of the adjusted close (using abs val)
+Abs_accuracy = (1 - np.abs(1 - results_df['Predicted'] / results_df['Actual']))
+print("Overall modified Accuracy")
+print(np.mean(Abs_accuracy))
+
+# Evaluate the performance of the regression model
+mse = mean_squared_error(y_test, predictions)
+print(f"Mean Squared Error (adj price in dollars amount off): {mse}")
+
+# Takes in open, high, low, close, volume, earnings (0 for non earnings tomorrow 1 for earnings tomorrow)
+# below is an example value of a non-earnings day sequence provided as an example (10/23/2018)
+custom_values = np.array([[53.957500,55.812500,53.674999,55.682499,155071200,0]])
+
+# This would be the next day after the above date (10/24/2018)
+actual_adj_value = 51.719452
+
+# Scale the custom input values using a standard scaker
+custom_values_scaled = scaler.transform(custom_values)
+
+# Make predictions with the linear regression model
+# for our custom values (test example 10/23/2018 predicting 10/24/2018)
+custom_predictions = linear_regression_model.predict(custom_values_scaled)
+
+# Print the predictions
+print("Custom Predictions:")
+print(custom_predictions)
+
+print("Accuracy of Custom Prediction:")
+print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
+
+# Plot the results of cross-validated predictions
+plt.scatter(y_aapl, predicted, color='blue', label='Cross-validated predictions')
+plt.plot([y_aapl.min(), y_aapl.max()], [y_aapl.min(), y_aapl.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+plt.xlabel('Actual')
+plt.ylabel('Predicted')
+plt.title('Cross-validated Predictions vs. Actual')
+plt.legend()
+plt.show()
+
+# Plot the actual difference between the predicted and actual adjusted close
+plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
+
+# Plot a diagonal line representing perfect predictions
+plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], [results_df['Actual'].min(), results_df['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+
+plt.xlabel('Actual Adjusted Close')
+plt.ylabel('Predicted Adjusted Close')
+plt.title('Actual vs Predicted Adjusted Close')
+plt.legend()
+plt.show()
+
+"""# Random Forest Regressor
+
+**Next Day Prediction (non-earnings eve)**
+
+Uses non-earnings eve rows (ie rows where the next day is not an earnings day) to forecast AAPL stock price predictions for the next day
+"""
+
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.metrics import mean_squared_error
+
+# Assign the target adj close (what we are trying to predict)
+# to be the subsequent row's adjusted close on the following day
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-1)
+
+# Drop the last row to handle NaN values created by the shift
+df_aapl = df_aapl.dropna()
+
+# Only keep the  non-earnings rows (ie where Earnings != 1)
+df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+
+# Separate the features (X) and target variable (y) which is the target adjusted close
+# see report / text comments for further explanation
+y_aapl = df_aapl_non['Target Adj Close']
+
+# Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
+# since we are not considered earnings per share (EPS) estimates
+X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+
+# Create a StandardScaler
+scaler = StandardScaler()
+
+# Fit and transform the scaler on the training data
+X_train_scaled = scaler.fit_transform(X_train)
+
+# Transform the test data using the scaler
+X_test_scaled = scaler.transform(X_test)
+
+# Create a Random Forest Regressor
+rf_regressor = RandomForestRegressor()
+
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [5, 7, 10],
+}
+
+# Perform grid search with cross-validation
+grid_search = GridSearchCV(estimator=rf_regressor, param_grid=param_grid, scoring='neg_mean_squared_error', cv=10)
+grid_search.fit(X_train_scaled, y_train)
+
+# Retrieve the best hyperparameters based on our Grid search exhaustive findings
+best_params = grid_search.best_params_
+
+# Make predictions on the test set using the best model
+best_model = grid_search.best_estimator_
+predictions = best_model.predict(X_test_scaled)
+
+# Evaluate the performance of the best model
+mse = mean_squared_error(y_test, predictions)
+print(f"MSE of RF Regressor (adj price in dollars amount off): {mse}")
+print(mse)
+
+# Create a DataFrame with cross-validated predictions
+results_df = pd.DataFrame({'Predicted': predictions, 'Actual': y_test})
+# Zip the predictions and test values together for ease
+results_tuples = list(zip(predictions, y_test))
+
+# This accuracy represents how "off" the results are between our prediction for each row and the actual value
+# of the adjusted close (using abs val)
+Abs_accuracy = (1 - np.abs(1 - results_df['Predicted'] / results_df['Actual']))
+print("Overall modified Accuracy")
+print(np.mean(Abs_accuracy))
+
+
+# Takes in open, high, low, close, volume, earnings (0 for non earnings tomorrow 1 for earnings tomorrow)
+# below is an example value of a non-earnings day sequence provided as an example (10/23/2018)
+custom_values = np.array([[53.957500,55.812500,53.674999,55.682499,155071200,0]])
+
+# This would be the next day after the above date (10/24/2018)
+actual_adj_value = 51.719452
+
+# Scale the custom input values using a standard scaker
+custom_values_scaled = scaler.transform(custom_values)
+
+# Make predictions with the linear regression model
+# for our custom values (test example 10/23/2018 predicting 10/24/2018)
+custom_predictions = best_model.predict(custom_values_scaled)
+
+# Print the predictions
+print("Custom Predictions:")
+print(custom_predictions)
+
+print("Accuracy of Custom Prediction:")
+print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
+
+# Plot the results of cross-validated predictions
+# plt.scatter(y_aapl, predicted, color='blue', label='Cross-validated predictions')
+# plt.plot([y_aapl.min(), y_aapl.max()], [y_aapl.min(), y_aapl.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+# plt.xlabel('Actual')
+# plt.ylabel('Predicted')
+# plt.title('Cross-validated Predictions vs. Actual')
+# plt.legend()
+# plt.show()
+
+# Plot the actual difference between the predicted and actual adjusted close
+plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
+
+# Plot a diagonal line representing perfect predictions
+plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], [results_df['Actual'].min(), results_df['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+
+plt.xlabel('Actual Adjusted Close')
+plt.ylabel('Predicted Adjusted Close')
+plt.title('Actual vs Predicted Adjusted Close')
+plt.legend()
+plt.show()
+
+"""**Next Day Prediction (earnings eve)**
+Uses earnings eve rows and subsequent earnings day rows as pairs to predict the earnings day adjusted price based upon earnings eve
+"""
+
+df_aapl = pd.read_csv('AAPL.csv')
+
+df_aapl = df_aapl.dropna(subset=['Date'])
+
+# Convert the 'Date' column to datetime type
+# df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
+
+# # Extract the timestamp from the datetime and convert it to float
+# df_aapl['Date'] = df_aapl['Date'].apply(lambda x: x.timestamp())
+
+# Assign the target adjusted close (ie what we are trying to predict)
+# to be the next day's adjusted close
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-1)
+
+# Drop the last row to handle NaN values created by the shift
+df_aapl = df_aapl.dropna()
+
+# Initialize an empty dataframe to store the selected rows (earnings rows and the subsequent row directly after
+# so we can see the effect of the earnings results on the stock price the next day)
+selected_rows = pd.DataFrame()
+
+# Iterate through the entirety of the aapl dataframe
+for index, row in df_aapl.iterrows():
+    # Check if the current row has "Earnings" equal to 1
+    if row['Earnings'] == 1.0:
+        # Append the current row
+        selected_rows = selected_rows.append(row)
+        # Check if we are still within bounds of the df
+        if ((index + 1 < len(df_aapl))):
+          # If so, also append the subsequent non-earnings row to our selected rows
+          selected_rows = selected_rows.append(df_aapl.loc[index + 1])
+
+# Reset the index of the new DataFrame
+selected_rows.reset_index(drop=True, inplace=True)
+
+# Update the aapl df to contain only the selected rows relevant to earnings eve
+df_aapl_earn = selected_rows
+
+# Separate the features (X) and target variable (y)
+y_aapl = df_aapl_earn['Target Adj Close']
+
+X_aapl = df_aapl_earn.drop(['Adj Close', 'Target Adj Close', 'Date'], axis=1)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+
+# Create a StandardScaler
+scaler = StandardScaler()
+
+# Fit and transform the scaler on the training data
+X_train_scaled = scaler.fit_transform(X_train)
+
+# Transform the test data using the scaler
+X_test_scaled = scaler.transform(X_test)
+
+# Create a Random Forest Regressor
+rf_regressor = RandomForestRegressor()
+
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [5, 7, 10],
+}
+
+# Perform grid search with cross-validation
+grid_search = GridSearchCV(estimator=rf_regressor, param_grid=param_grid, scoring='neg_mean_squared_error', cv=10)
+grid_search.fit(X_train_scaled, y_train)
+
+# Retrieve the best hyperparameters based on our Grid search exhaustive findings
+best_params = grid_search.best_params_
+
+# Make predictions on the test set using the best model
+best_model = grid_search.best_estimator_
+predictions = best_model.predict(X_test_scaled)
+
+# Evaluate the performance of the best model
+mse = mean_squared_error(y_test, predictions)
+print(f"MSE of RF Regressor (adj price in dollars amount off): {mse}")
+print(mse)
+
+# Create a DataFrame with cross-validated predictions
+results_df = pd.DataFrame({'Predicted': predictions, 'Actual': y_test})
+# Zip the predictions and test values together for ease
+results_tuples = list(zip(predictions, y_test))
+
+# This accuracy represents how "off" the results are between our prediction for each row and the actual value
+# of the adjusted close (using abs val)
+Abs_accuracy = (1 - np.abs(1 - results_df['Predicted'] / results_df['Actual']))
+print("Overall modified Accuracy")
+print(np.mean(Abs_accuracy))
+
+
+# takes in open, high, low, close, volume, earnings, expected eps, actual eps
+# below is an example value of earnings day eve provided as an example (11/01/2018)
+custom_values = np.array([[54.762501,55.590000,54.202499,55.555000,233292800,1,0.7,0.73]])
+
+# This would be the next day after the above date (11/02/2018)
+actual_adj_value = 49.889595
+
+# Scale the custom input values using a standard scaker
+custom_values_scaled = scaler.transform(custom_values)
+
+# Make predictions with the linear regression model
+# for our custom values (test example 11/01/2018 predicting 11/02/2018 adj close)
+custom_predictions = best_model.predict(custom_values_scaled)
+
+# Print the predictions
+print("Custom Predictions:")
+print(custom_predictions)
+
+print("Accuracy of Custom Prediction:")
+print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
+
+# Plot the actual difference between the predicted and actual adjusted close
+plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
+
+# Plot a diagonal line representing perfect predictions
+plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], [results_df['Actual'].min(), results_df['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+
+plt.xlabel('Actual Adjusted Close')
+plt.ylabel('Predicted Adjusted Close')
+plt.title('Actual vs Predicted Adjusted Close')
+plt.legend()
+plt.show()
