@@ -479,7 +479,9 @@ print(f"Mean Squared Error (adj price in dollars amount off): {mse}")
 
 # Takes in open, high, low, close, volume, earnings (0 for non earnings tomorrow 1 for earnings tomorrow)
 # below is an example value of a non-earnings day sequence provided as an example (2018-08-21)
-custom_values = np.array([[54.200001,54.297501,53.507500,53.759998,104639200,0]])
+# custom_values = np.array([[54.200001,54.297501,53.507500,53.759998,104639200,0]])
+
+custom_values = np.array([[181.27,183.89,180.97,183.79,54274900,0]])
 
 # This would be the adj close at date 2019-08-21
 actual_adj_value = 51.923771
@@ -596,7 +598,10 @@ print(f"Mean Squared Error (adj price in dollars amount off): {mse}")
 
 # Takes in open, high, low, close, volume, earnings (0 for non earnings tomorrow 1 for earnings tomorrow)
 # below is an example value of a non-earnings day sequence provided as an example (2012-02-14)
-custom_values = np.array([[18.023571,18.198570,17.928572,18.195000,460398400,0]])
+# custom_values = np.array([[18.023571,18.198570,17.928572,18.195000,460398400,0]])
+
+custom_values = np.array([[28.410000,28.480000,28.027500,28.129999,119526000,0]])
+
 
 # This would be the date (2022-02-14)
 actual_adj_value = 168.119446
@@ -1124,8 +1129,11 @@ X_test_scaled = scaler.transform(X_test)
 rf_regressor = RandomForestRegressor()
 
 param_grid = {
-    'n_estimators': [50, 100, 200],
+    'n_estimators': [25, 50, 100],
     'max_depth': [5, 7, 10],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4],
+    'max_features': ['auto', 'sqrt', 'log2']
 }
 
 # Perform grid search with cross-validation
@@ -1160,7 +1168,9 @@ print(np.mean(Abs_accuracy))
 
 # Takes in open, high, low, close, volume, earnings (0 for non earnings tomorrow 1 for earnings tomorrow)
 # below is an example value of a non-earnings day sequence provided as an example (2012-02-14)
-custom_values = np.array([[18.023571,18.198570,17.928572,18.195000,460398400,0]])
+# custom_values = np.array([[18.023571,18.198570,17.928572,18.195000,460398400,0]])
+
+custom_values = np.array([[134.350006,134.559998,130.300003,132.229996,77852100,0]])
 
 # This would be the date (2022-02-14)
 actual_adj_value = 168.119446
@@ -1175,6 +1185,213 @@ custom_predictions = best_model.predict(custom_values_scaled)
 # Print the predictions
 print(f"Custom Prediction for next decade, actual adj close is {actual_adj_value}")
 print(f"Random Forest model predicted for next decade: {custom_predictions}")
+
+print("Accuracy of Custom Prediction:")
+print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
+
+# Plot the actual difference between the predicted and actual adjusted close
+plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
+
+# Plot a diagonal line representing perfect predictions
+plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], [results_df['Actual'].min(), results_df['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+
+plt.xlabel('Actual Adjusted Close')
+plt.ylabel('Predicted Adjusted Close')
+plt.title('Actual vs Predicted Adjusted Close')
+plt.legend()
+plt.show()
+
+"""# Long-Short Term Memory"""
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error
+from keras.models import Sequential
+from keras.layers import LSTM, Dense
+from keras.layers import Dropout
+
+# Reset the df back to pre-shift to prepare for the monthly shift
+df_aapl = pd.read_csv('AAPL.csv')
+
+# Assign the target adj close (what we are trying to predict)
+# to be the subsequent row's adjusted close on the following day
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-1)
+
+# Drop the last row to handle NaN values created by the shift
+df_aapl = df_aapl.dropna()
+
+# Only keep the non-earnings rows (ie where Earnings != 1)
+df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+
+# Separate the features (X) and target variable (y) which is the target adjusted close
+# see report / text comments for further explanation
+y_aapl = df_aapl_non['Target Adj Close']
+
+# Note that we drop the expected EPS and actual EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
+# since we are not considering earnings per share (EPS) estimates
+X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+
+# Create a StandardScaler
+scaler = StandardScaler()
+
+# Fit and transform the scaler on the training data
+X_train_scaled = scaler.fit_transform(X_train)
+
+# Transform the test data using the scaler
+X_test_scaled = scaler.transform(X_test)
+
+# Normalize the target variable
+scaler_y = StandardScaler()
+y_train_scaled = scaler_y.fit_transform(y_train.values.reshape(-1, 1))
+y_test_scaled = scaler_y.transform(y_test.values.reshape(-1, 1))
+
+# Reshape input data to be 3D [samples, time steps, features]
+time_steps = 30  # You can experiment with different time steps
+X_train_reshaped = np.array([X_train_scaled[i:i+time_steps, :] for i in range(len(X_train_scaled)-time_steps+1)])
+X_test_reshaped = np.array([X_test_scaled[i:i+time_steps, :] for i in range(len(X_test_scaled)-time_steps+1)])
+
+# Build the LSTM model
+model = Sequential()
+model.add(LSTM(units=50, return_sequences=True, input_shape=(time_steps, X_train_reshaped.shape[2])))
+model.add(Dropout(0.2))  # Add dropout layer
+model.add(LSTM(units=50, return_sequences=True))
+model.add(Dropout(0.2))  # Add dropout layer
+model.add(LSTM(units=50))
+model.add(Dense(units=1))
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+# Train the model
+model.fit(X_train_reshaped, y_train_scaled, epochs=12, batch_size=128, validation_split=0.1, verbose=1)
+
+# Make predictions
+train_predict = scaler_y.inverse_transform(model.predict(X_train_reshaped))
+test_predict = scaler_y.inverse_transform(model.predict(X_test_reshaped))
+
+# Calculate root mean squared error
+train_rmse = np.sqrt(mean_squared_error(y_train.values[time_steps:], train_predict[:len(y_train) - time_steps]))
+test_rmse = np.sqrt(mean_squared_error(y_test.values[time_steps:], test_predict[:len(y_test) - time_steps]))
+
+print(f'Training RMSE: {train_rmse}')
+print(f'Testing RMSE: {test_rmse}')
+
+# Combine the training and testing predictions with the original data
+all_predictions = np.concatenate([train_predict, test_predict])
+all_actuals = np.concatenate([y_train.values[time_steps:], y_test.values[time_steps:]])
+
+# Plot the actual difference between the predicted and actual adjusted close for testing data
+plt.scatter(y_test.values[time_steps:], test_predict[:len(y_test) - time_steps], color='purple', label='Actual vs Predicted Test')
+
+# Plot a diagonal line representing perfect predictions
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+
+plt.xlabel('Actual Adjusted Close')
+plt.ylabel('Predicted Adjusted Close')
+plt.title('Actual vs Predicted Adjusted Close - LSTM Results')
+plt.legend()
+plt.show()
+
+"""# Support Vector Regression (SVR)"""
+
+from sklearn.svm import SVR
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.metrics import mean_squared_error
+
+# Reset the df back to pre-shift to prepare for the monthly shift
+df_aapl = pd.read_csv('AAPL.csv')
+
+# Assign the target adj close (what we are trying to predict)
+# to be the subsequent row's adjusted close on the following day
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
+
+# Drop the last row to handle NaN values created by the shift
+df_aapl = df_aapl.dropna()
+
+# Only keep the non-earnings rows (i.e., where Earnings != 1)
+df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+
+# Separate the features (X) and target variable (y) which is the target adjusted close
+y_aapl = df_aapl_non['Target Adj Close']
+X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+
+# Create a StandardScaler
+scaler = StandardScaler()
+
+# Fit and transform the scaler on the training data
+X_train_scaled = scaler.fit_transform(X_train)
+
+# Transform the test data using the scaler
+X_test_scaled = scaler.transform(X_test)
+
+# SVR model
+svr = SVR()
+
+# Hyperparameter tuning using GridSearchCV
+param_grid = {'C': [0.1, 1, 10, 100],
+              'gamma': [0.001, 0.01, 0.1],
+              'kernel': ['linear', 'rbf', 'poly'],
+              'epsilon': [0.1, 0.2, 0.5],
+              'degree': [2, 3, 4]}
+
+grid_search = GridSearchCV(svr, param_grid, scoring='neg_mean_squared_error', cv=10, n_jobs=-1)
+grid_search.fit(X_train_scaled, y_train)
+
+# Get the best parameters
+best_params = grid_search.best_params_
+print("Best Hyperparameters:", best_params)
+
+# Train SVR model with best hyperparameters
+best_svr = SVR(**best_params)
+best_svr.fit(X_train_scaled, y_train)
+
+# Make predictions
+predictions = best_svr.predict(X_test_scaled)
+
+# Calculate root mean squared error
+test_rmse = np.sqrt(mean_squared_error(y_test, predictions))
+
+# Evaluate the performance of the best model
+mse = mean_squared_error(y_test, predictions)
+print(f"MSE of RF Regressor (adj price in dollars amount off): {mse}")
+print(mse)
+
+# Create a DataFrame with cross-validated predictions
+results_df = pd.DataFrame({'Predicted': predictions, 'Actual': y_test})
+# Zip the predictions and test values together for ease
+results_tuples = list(zip(predictions, y_test))
+
+print(f"Overall size of predictions for a year out: {len(results_df)}")
+
+# This accuracy represents how "off" the results are between our prediction for each row and the actual value
+# of the adjusted close (using abs val)
+Abs_accuracy = (1 - np.abs(1 - results_df['Predicted'] / results_df['Actual']))
+print("Overall modified Accuracy")
+print(np.mean(Abs_accuracy))
+
+# Takes in open, high, low, close, volume, earnings (0 for non earnings tomorrow 1 for earnings tomorrow)
+# below is an example value of a non-earnings day sequence provided as an example (2018-08-21)
+custom_values = np.array([[139.899994,141.350006,138.220001,138.979996,77033700,0]])
+
+# This would be the adj close at date 2019-08-21
+actual_adj_value = 51.923771
+
+# Scale the custom input values using a standard scaker
+custom_values_scaled = scaler.transform(custom_values)
+
+# Make predictions with the Random Forest model
+# for our custom values (test example 2018-08-21 predicting 2019-08-21)
+custom_predictions = best_svr.predict(custom_values_scaled)
+
+# Print the predictions
+print(f"Custom Prediction for next year, actual adj close is {actual_adj_value}")
+print(f"SVR model predicted for next decade: {custom_predictions}")
 
 print("Accuracy of Custom Prediction:")
 print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
