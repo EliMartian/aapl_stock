@@ -60,6 +60,93 @@ sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', linewidths=.5)
 plt.title('Correlation Matrix of AAPL Stock Features')
 plt.show()
 
+"""# Manage US Stock Market Open days + Forecast 10-yr Predictions"""
+
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta, MO
+
+# Define the start and end dates
+start_date = datetime(2023, 1, 2)  # Monday, January 2, 2023
+end_date = datetime(2033, 12, 31)
+
+# Define a list of holidays to exclude
+holidays = [datetime(2023, 1, 1),
+            datetime(2023, 7, 4),
+            datetime(2023, 12, 24),
+            datetime(2023, 12, 25),
+            datetime(2024, 1, 1),
+            datetime(2024, 7, 4),
+            datetime(2024, 12, 24),
+            datetime(2024, 12, 25),
+            datetime(2025, 1, 1),
+            datetime(2025, 7, 4),
+            datetime(2025, 12, 24),
+            datetime(2025, 12, 25),
+            datetime(2026, 1, 1),
+            datetime(2026, 7, 4),
+            datetime(2026, 12, 24),
+            datetime(2026, 12, 25),
+            datetime(2027, 1, 1),
+            datetime(2027, 7, 4),
+            datetime(2027, 12, 24),
+            datetime(2027, 12, 25),
+            datetime(2028, 1, 1),
+            datetime(2028, 7, 4),
+            datetime(2028, 12, 24),
+            datetime(2028, 12, 25),
+            datetime(2029, 1, 1),
+            datetime(2029, 7, 4),
+            datetime(2029, 12, 24),
+            datetime(2029, 12, 25),
+            datetime(2030, 1, 1),
+            datetime(2030, 7, 4),
+            datetime(2030, 12, 24),
+            datetime(2030, 12, 25),
+            datetime(2031, 1, 1),
+            datetime(2031, 7, 4),
+            datetime(2031, 12, 24),
+            datetime(2031, 12, 25),
+            datetime(2032, 1, 1),
+            datetime(2032, 7, 4),
+            datetime(2032, 12, 24),
+            datetime(2032, 12, 25),
+            datetime(2033, 1, 1),
+            datetime(2033, 7, 4),
+            datetime(2033, 12, 24),
+            datetime(2033, 12, 25)]  # Add more holidays as needed
+
+# Function to check if a date is a weekday and not a holiday
+def is_weekday_and_not_holiday(date):
+    return date.weekday() < 5 and date not in holidays
+
+# Loop through the dates and print weekdays
+current_date = start_date
+while current_date <= end_date:
+    if is_weekday_and_not_holiday(current_date):
+        if (current_date.month == 1 and 15 <= current_date.day <= 21 and current_date.weekday() == 0):
+            # Skip MLK Day (Observed Holiday)
+            current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
+        if (current_date.month == 2 and 15 <= current_date.day <= 21 and current_date.weekday() == 0):
+            # Skip President's Day (Observed Holiday)
+            current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
+        if (current_date.month == 6 and 15 <= current_date.day <= 21 and current_date.weekday() == 0):
+            # Skip Juneteenth (Observed Holiday)
+            current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
+        if (current_date.month == 11 and 22 <= current_date.day <= 28 and current_date.weekday() == 3):
+            # Skip Thanksgiving (Observed Holiday)
+            current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
+        if (current_date.month == 9 and current_date.day <= 7 and current_date.weekday() == 3):
+            # Skip Labor Day (Observed Holiday)
+            current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
+        if (current_date.month == 5 and current_date + timedelta(days=7) > datetime(current_date.year, 6, 1) and current_date.weekday() == 0):
+            # Skip Memorial Day (Observed Holiday)
+            if (current_date + timedelta(days=1) == datetime(current_date.year, 6, 1)):
+                current_date = datetime(current_date.year, 6, 1)
+            else:
+                current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
+        print(current_date.strftime("%Y-%m-%d"))
+    current_date += timedelta(days=1)
+
 """# I would like to do a feature seaborn correlation graph to see how correlated features are. Maybe PCA analysis too?
 
 # Linear Regression Model
@@ -579,10 +666,33 @@ linear_regression_model.fit(X_train_scaled, y_train)
 # Make predictions on the scaled test data
 predictions = linear_regression_model.predict(X_test_scaled)
 
+df_aapl_total = pd.read_csv('AAPL.csv')
+
+df_aapl_total = df_aapl_total.dropna(subset=['Date'])
+
+X_aapl_total = df_aapl_total.drop(['Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# Create a new value for all predictions
+X_total_scaled = scaler.transform(X_aapl_total)
+
+print(f"Len of X_aapl: {len(X_aapl_total)}")
+print(f"Len of X_aapl_scaled: {len(X_total_scaled)}")
+
 # Create a DataFrame with cross-validated predictions
 results_df = pd.DataFrame({'Predicted': predictions, 'Actual': y_test})
 # Zip the predictions and test values together for ease
 results_tuples = list(zip(predictions, y_test))
+
+predictions_total = linear_regression_model.predict(X_total_scaled)
+results_total_df = pd.DataFrame({'Predicted': predictions_total})
+print("Generating total predictions data: ")
+print("Results tuples list:")
+print(len(results_total_df))
+print(results_total_df)
+
+print("incoming results for looop")
+for i in range(len(predictions_total)):
+  print(predictions_total[i])
 
 print(f"Overall size of predictions for a decade out: {len(results_df)}")
 
@@ -600,7 +710,7 @@ print(f"Mean Squared Error (adj price in dollars amount off): {mse}")
 # below is an example value of a non-earnings day sequence provided as an example (2012-02-14)
 # custom_values = np.array([[18.023571,18.198570,17.928572,18.195000,460398400,0]])
 
-custom_values = np.array([[28.410000,28.480000,28.027500,28.129999,119526000,0]])
+custom_values = np.array([[59.687500,59.977501,59.180000,59.977501,23753600,0]])
 
 
 # This would be the date (2022-02-14)
@@ -621,25 +731,40 @@ print("Accuracy of Custom Prediction:")
 print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
 
 # Plot the results of cross-validated predictions
-plt.scatter(y_aapl, predicted, color='blue', label='Cross-validated predictions')
-plt.plot([y_aapl.min(), y_aapl.max()], [y_aapl.min(), y_aapl.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
-plt.xlabel('Actual')
-plt.ylabel('Predicted')
-plt.title('Cross-validated Predictions vs. Actual')
-plt.legend()
-plt.show()
+# plt.scatter(y_aapl, predicted, color='blue', label='Cross-validated predictions')
+# plt.plot([y_aapl.min(), y_aapl.max()], [y_aapl.min(), y_aapl.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+# plt.xlabel('Actual')
+# plt.ylabel('Predicted')
+# plt.title('Cross-validated Predictions vs. Actual')
+# plt.legend()
+# plt.show()
 
-# Plot the actual difference between the predicted and actual adjusted close
-plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
+# # Plot the actual difference between the predicted and actual adjusted close
+# plt.scatter(results_total_df['Actual'], results_total_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
 
-# Plot a diagonal line representing perfect predictions
-plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], [results_df['Actual'].min(), results_df['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+# # Plot a diagonal line representing perfect predictions
+# plt.plot([results_total_df['Actual'].min(), results_total_df['Actual'].max()], [results_total_df['Actual'].min(), results_total_df['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
 
-plt.xlabel('Actual Adjusted Close')
-plt.ylabel('Predicted Adjusted Close')
-plt.title('Actual vs Predicted Adjusted Close')
-plt.legend()
-plt.show()
+# plt.xlabel('Actual Adjusted Close')
+# plt.ylabel('Predicted Adjusted Close')
+# plt.title('Actual vs Predicted Adjusted Close')
+# plt.legend()
+# plt.show()
+
+"""# Python print to Excel file converter"""
+
+space_delimited_data = """
+
+"""
+
+# Split the data by space and create a list of numbers
+numbers = space_delimited_data.split()
+
+# Create a DataFrame with a single column
+df = pd.DataFrame({'Numbers': numbers})
+
+# Export the DataFrame to Excel
+df.to_excel('/usr/output_aapl_pred3.xlsx', index=False)
 
 """# Random Forest Regressor
 
