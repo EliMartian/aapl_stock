@@ -684,15 +684,12 @@ results_df = pd.DataFrame({'Predicted': predictions, 'Actual': y_test})
 results_tuples = list(zip(predictions, y_test))
 
 predictions_total = linear_regression_model.predict(X_total_scaled)
-results_total_df = pd.DataFrame({'Predicted': predictions_total})
-print("Generating total predictions data: ")
-print("Results tuples list:")
-print(len(results_total_df))
-print(results_total_df)
+results_total_df_lr = pd.DataFrame({'Predicted': predictions_total})
 
-print("incoming results for looop")
-for i in range(len(predictions_total)):
-  print(predictions_total[i])
+
+# print("incoming results for looop")
+# for i in range(len(predictions_total)):
+#   print(predictions_total[i])
 
 print(f"Overall size of predictions for a decade out: {len(results_df)}")
 
@@ -710,7 +707,7 @@ print(f"Mean Squared Error (adj price in dollars amount off): {mse}")
 # below is an example value of a non-earnings day sequence provided as an example (2012-02-14)
 # custom_values = np.array([[18.023571,18.198570,17.928572,18.195000,460398400,0]])
 
-custom_values = np.array([[59.687500,59.977501,59.180000,59.977501,23753600,0]])
+custom_values = np.array([[66.945000,68.139999,66.830002,67.864998,137310400,0]])
 
 
 # This would be the date (2022-02-14)
@@ -754,7 +751,6 @@ print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
 """# Python print to Excel file converter"""
 
 space_delimited_data = """
-
 """
 
 # Split the data by space and create a list of numbers
@@ -764,7 +760,7 @@ numbers = space_delimited_data.split()
 df = pd.DataFrame({'Numbers': numbers})
 
 # Export the DataFrame to Excel
-df.to_excel('/usr/output_aapl_pred3.xlsx', index=False)
+df.to_excel('/usr/output_aapl_pred4.xlsx', index=False)
 
 """# Random Forest Regressor
 
@@ -1227,19 +1223,31 @@ df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
 # Drop the last row to handle NaN values created by the shift
 df_aapl = df_aapl.dropna()
 
-# Only keep the  non-earnings rows (ie where Earnings != 1)
-df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+# # Only keep the  non-earnings rows (ie where Earnings != 1)
+# df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
 
-# Separate the features (X) and target variable (y) which is the target adjusted close
-# see report / text comments for further explanation
-y_aapl = df_aapl_non['Target Adj Close']
+# Specify the date to split the data
+split_date = '2012-06-01'
 
-# Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
-# since we are not considered earnings per share (EPS) estimates
-X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+# Convert the date column to datetime format if needed
+df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
 
-# Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+# Create training and testing sets
+train_set = df_aapl[df_aapl['Date'] < split_date]
+print(f"What is train set: {train_set}")
+test_set = df_aapl[df_aapl['Date'] >= split_date]
+print(f"What is test set: {test_set}")
+
+# Separate features (X) and target variable (y) for training and testing
+y_train = train_set['Target Adj Close']
+X_train = train_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+y_test = test_set['Target Adj Close']
+X_test = test_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+
+print(f"y_test {y_test}")
+print(f"X_test {X_test}")
 
 # Create a StandardScaler
 scaler = StandardScaler()
@@ -1254,11 +1262,10 @@ X_test_scaled = scaler.transform(X_test)
 rf_regressor = RandomForestRegressor()
 
 param_grid = {
-    'n_estimators': [25, 50, 100],
-    'max_depth': [5, 7, 10],
+    'n_estimators': [50, 100, 250],
+    'max_depth': [5, 10, 20, 30],
     'min_samples_split': [2, 5, 10],
     'min_samples_leaf': [1, 2, 4],
-    'max_features': ['auto', 'sqrt', 'log2']
 }
 
 # Perform grid search with cross-validation
@@ -1295,7 +1302,7 @@ print(np.mean(Abs_accuracy))
 # below is an example value of a non-earnings day sequence provided as an example (2012-02-14)
 # custom_values = np.array([[18.023571,18.198570,17.928572,18.195000,460398400,0]])
 
-custom_values = np.array([[134.350006,134.559998,130.300003,132.229996,77852100,0]])
+custom_values = np.array([[66.945000,68.139999,66.830002,67.864998,137310400,0]])
 
 # This would be the date (2022-02-14)
 actual_adj_value = 168.119446
@@ -1330,6 +1337,7 @@ plt.show()
 
 import numpy as np
 import pandas as pd
+import keras
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error
@@ -1436,15 +1444,25 @@ df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
 # Drop the last row to handle NaN values created by the shift
 df_aapl = df_aapl.dropna()
 
-# Only keep the non-earnings rows (i.e., where Earnings != 1)
-df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+# Specify the date to split the data
+split_date = '2012-06-01'
 
-# Separate the features (X) and target variable (y) which is the target adjusted close
-y_aapl = df_aapl_non['Target Adj Close']
-X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+# Convert the date column to datetime format if needed
+df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
 
-# Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+# Create training and testing sets
+train_set = df_aapl[df_aapl['Date'] < split_date]
+print(f"What is train set: {train_set}")
+test_set = df_aapl[df_aapl['Date'] >= split_date]
+print(f"What is test set: {test_set}")
+
+# Separate features (X) and target variable (y) for training and testing
+y_train = train_set['Target Adj Close']
+X_train = train_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+y_test = test_set['Target Adj Close']
+X_test = test_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
 
 # Create a StandardScaler
 scaler = StandardScaler()
@@ -1530,5 +1548,150 @@ plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], [results_df['
 plt.xlabel('Actual Adjusted Close')
 plt.ylabel('Predicted Adjusted Close')
 plt.title('Actual vs Predicted Adjusted Close')
+plt.legend()
+plt.show()
+
+"""# Test DNN"""
+
+import numpy as np
+import pandas as pd
+import keras
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error
+from keras.models import Sequential
+from keras.layers import LSTM, Dense
+from keras.layers import Dropout
+
+model = keras.Sequential();
+
+model.add(keras.layers.Dense(6, activation='relu', input_shape=(6,)))
+model.add(keras.layers.Dense(6, activation='relu'))
+model.add(keras.layers.Dense(6, activation='relu'))
+model.add(keras.layers.Dense(1))
+
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+
+# Reset the df back to pre-shift to prepare for the monthly shift
+df_aapl = pd.read_csv('AAPL.csv')
+
+# Assign the target adj close (what we are trying to predict)
+# to be the subsequent row's adjusted close on the following day
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
+
+# Drop the last row to handle NaN values created by the shift
+df_aapl_non = df_aapl.dropna()
+
+# y_aapl = df_aapl_non['Target Adj Close']
+
+# # Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
+# # since we are not considered earnings per share (EPS) estimates
+# X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# # Split the data into training and testing sets
+# X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+
+# Specify the date to split the data
+split_date = '2012-06-01'
+
+# Convert the date column to datetime format if needed
+df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
+
+# Create training and testing sets
+train_set = df_aapl[df_aapl['Date'] < split_date]
+test_set = df_aapl[df_aapl['Date'] >= split_date]
+
+# Separate features (X) and target variable (y) for training and testing
+y_train = train_set['Target Adj Close']
+X_train = train_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+y_test = test_set['Target Adj Close']
+X_test = test_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+
+
+
+# Create a StandardScaler
+scaler = StandardScaler()
+
+# Fit and transform the scaler on the training data
+X_train_scaled = scaler.fit_transform(X_train)
+
+# Transform the test data using the scaler
+X_test_scaled = scaler.transform(X_test)
+
+
+model.fit(X_train_scaled, y_train, epochs=200, callbacks=[keras.callbacks.EarlyStopping(patience=5)])
+
+y_pred = model.predict(X_test_scaled)
+
+# Create a DataFrame to display actual values and predictions
+results_df = pd.DataFrame({'Predicted': y_pred.flatten(), 'Actual': y_test})
+
+# Plot the predictions and actual results
+plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
+# plt.scatter(results_df.index, results_df['Predicted'], color='green', label='DNN')
+# plt.scatter(results_total_df_dnn.index, results_total_df_dnn['Predicted'], color='red', label='Actual')
+
+# Plot a diagonal line representing perfect predictions
+plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], [results_df['Actual'].min(), results_df['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+
+plt.xlabel('Actual Adjusted Close')
+plt.ylabel('Predicted Adjusted Close')
+plt.title('Actual vs Predicted Adjusted Close')
+plt.legend()
+plt.show()
+
+# Custom predictor below
+# fut_data = np.array([19.695715,19.716785,19.282143,19.309643,426739600,0])
+# fut_data_scaled = scaler.transform(fut_data.reshape(1,6))
+# y_pred_fut = model.predict(fut_data_scaled.reshape(1,6), batch_size=1)
+# print(f"2031 prediction: {y_pred_fut}")
+
+
+df_aapl_total = pd.read_csv('AAPL.csv')
+
+df_aapl_total = df_aapl_total.dropna(subset=['Date'])
+
+X_aapl_total = df_aapl_total.drop(['Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# Create a new value for all predictions
+X_total_scaled = scaler.transform(X_aapl_total)
+
+predictions_total = model.predict(X_total_scaled)
+results_total_df_dnn = pd.DataFrame({'Predicted': predictions_total.flatten()})
+
+# print("incoming results for looop")
+# for i in range(len(predictions_total.flatten())):
+#   print(predictions_total[i][0])
+
+"""# A Visual Between Actual Values, Linear Regressor, and DNN
+
+Possibly?
+"""
+
+# Plot only Model 1 predictions
+plt.scatter(results_total_df_lr.index, results_total_df_lr['Predicted'], color='blue', label='Linear Regressor')
+
+# Plot only Model 2 predictions
+plt.scatter(results_total_df_dnn.index, results_total_df_dnn['Predicted'], color='green', label='DNN')
+
+# Plot actual values
+df_aapl = pd.read_csv('AAPL.csv')
+
+# Assign the target adj close (what we are trying to predict)
+# to be the subsequent row's adjusted close on the following day
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
+
+# Drop the last row to handle NaN values created by the shift
+df_aapl_non = df_aapl.dropna()
+
+# Plot only Model 2 predictions
+plt.scatter(df_aapl_non.index, df_aapl_non['Adj Close'], color='red', label='Adj')
+
+plt.xlabel('Index (or any appropriate x-axis label)')
+plt.ylabel('Predicted/Actual Adjusted Close')
+plt.title('Predicted Adjusted Close for Different Models and Actual Values')
 plt.legend()
 plt.show()
