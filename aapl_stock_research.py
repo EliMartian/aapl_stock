@@ -60,95 +60,6 @@ sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', linewidths=.5)
 plt.title('Correlation Matrix of AAPL Stock Features')
 plt.show()
 
-"""# Manage US Stock Market Open days + Forecast 10-yr Predictions"""
-
-from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta, MO
-
-# Define the start and end dates
-start_date = datetime(2023, 1, 2)  # Monday, January 2, 2023
-end_date = datetime(2033, 12, 31)
-
-# Define a list of holidays to exclude
-holidays = [datetime(2023, 1, 1),
-            datetime(2023, 7, 4),
-            datetime(2023, 12, 24),
-            datetime(2023, 12, 25),
-            datetime(2024, 1, 1),
-            datetime(2024, 7, 4),
-            datetime(2024, 12, 24),
-            datetime(2024, 12, 25),
-            datetime(2025, 1, 1),
-            datetime(2025, 7, 4),
-            datetime(2025, 12, 24),
-            datetime(2025, 12, 25),
-            datetime(2026, 1, 1),
-            datetime(2026, 7, 4),
-            datetime(2026, 12, 24),
-            datetime(2026, 12, 25),
-            datetime(2027, 1, 1),
-            datetime(2027, 7, 4),
-            datetime(2027, 12, 24),
-            datetime(2027, 12, 25),
-            datetime(2028, 1, 1),
-            datetime(2028, 7, 4),
-            datetime(2028, 12, 24),
-            datetime(2028, 12, 25),
-            datetime(2029, 1, 1),
-            datetime(2029, 7, 4),
-            datetime(2029, 12, 24),
-            datetime(2029, 12, 25),
-            datetime(2030, 1, 1),
-            datetime(2030, 7, 4),
-            datetime(2030, 12, 24),
-            datetime(2030, 12, 25),
-            datetime(2031, 1, 1),
-            datetime(2031, 7, 4),
-            datetime(2031, 12, 24),
-            datetime(2031, 12, 25),
-            datetime(2032, 1, 1),
-            datetime(2032, 7, 4),
-            datetime(2032, 12, 24),
-            datetime(2032, 12, 25),
-            datetime(2033, 1, 1),
-            datetime(2033, 7, 4),
-            datetime(2033, 12, 24),
-            datetime(2033, 12, 25)]  # Add more holidays as needed
-
-# Function to check if a date is a weekday and not a holiday
-def is_weekday_and_not_holiday(date):
-    return date.weekday() < 5 and date not in holidays
-
-# Loop through the dates and print weekdays
-current_date = start_date
-while current_date <= end_date:
-    if is_weekday_and_not_holiday(current_date):
-        if (current_date.month == 1 and 15 <= current_date.day <= 21 and current_date.weekday() == 0):
-            # Skip MLK Day (Observed Holiday)
-            current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
-        if (current_date.month == 2 and 15 <= current_date.day <= 21 and current_date.weekday() == 0):
-            # Skip President's Day (Observed Holiday)
-            current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
-        if (current_date.month == 6 and 15 <= current_date.day <= 21 and current_date.weekday() == 0):
-            # Skip Juneteenth (Observed Holiday)
-            current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
-        if (current_date.month == 11 and 22 <= current_date.day <= 28 and current_date.weekday() == 3):
-            # Skip Thanksgiving (Observed Holiday)
-            current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
-        if (current_date.month == 9 and current_date.day <= 7 and current_date.weekday() == 3):
-            # Skip Labor Day (Observed Holiday)
-            current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
-        if (current_date.month == 5 and current_date + timedelta(days=7) > datetime(current_date.year, 6, 1) and current_date.weekday() == 0):
-            # Skip Memorial Day (Observed Holiday)
-            if (current_date + timedelta(days=1) == datetime(current_date.year, 6, 1)):
-                current_date = datetime(current_date.year, 6, 1)
-            else:
-                current_date = datetime(current_date.year, current_date.month, current_date.day + 1)
-        print(current_date.strftime("%Y-%m-%d"))
-    current_date += timedelta(days=1)
-
-"""# I would like to do a feature seaborn correlation graph to see how correlated features are. Maybe PCA analysis too?
-
 # Linear Regression Model
 
 **Next Day Prediction (non-earnings eve)**
@@ -284,11 +195,12 @@ for index, row in df_aapl.iterrows():
     # Check if the current row has "Earnings" equal to 1
     if row['Earnings'] == 1.0:
         # Append the current row
-        selected_rows = selected_rows.append(row)
+        pd.concat([selected_rows, row], ignore_index=True)
         # Check if we are still within bounds of the df
         if ((index + 1 < len(df_aapl))):
           # If so, also append the subsequent non-earnings row to our selected rows
-          selected_rows = selected_rows.append(df_aapl.loc[index + 1])
+          next_row_df = pd.DataFrame(df_aapl.loc[index + 1]).transpose()
+          selected_rows = pd.concat([selected_rows, next_row_df], ignore_index=True)
 
 # Reset the index of the new DataFrame
 selected_rows.reset_index(drop=True, inplace=True)
@@ -613,37 +525,86 @@ plt.show()
 The 2520 value as the approximation for business days in a decade was found to be most suitable for this dataset using a similar method as the yearly shift estimate in the above cell.
 """
 
+# # Reset the df back to pre-shift to prepare for the monthly shift
+# df_aapl = pd.read_csv('AAPL.csv')
+
+# df_aapl = df_aapl.dropna(subset=['Date'])
+
+# # Convert the 'Date' column to datetime type
+# # df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
+
+# # # Extract the timestamp from the datetime and convert it to float
+# # df_aapl['Date'] = df_aapl['Date'].apply(lambda x: x.timestamp())
+
+# # Assign the target adj close (what we are trying to predict)
+# # to be the adjusted close of the row approximately 2520 business (market open) days later to simulate a decade later
+# df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
+
+# # Drop the last row to handle NaN values created by the shift
+# df_aapl = df_aapl.dropna()
+
+# # Only keep the  non-earnings rows (ie where Earnings != 1)
+# df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+
+# # Separate the features (X) and target variable (y) which is the target adjusted close
+# # see report / text comments for further explanation
+# y_aapl = df_aapl_non['Target Adj Close']
+
+# # Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
+# # since we are not considered earnings per share (EPS) estimates
+# X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# # Split the data into training and testing sets
+# X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+
+
 # Reset the df back to pre-shift to prepare for the monthly shift
 df_aapl = pd.read_csv('AAPL.csv')
 
-df_aapl = df_aapl.dropna(subset=['Date'])
-
-# Convert the 'Date' column to datetime type
-# df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
-
-# # Extract the timestamp from the datetime and convert it to float
-# df_aapl['Date'] = df_aapl['Date'].apply(lambda x: x.timestamp())
-
 # Assign the target adj close (what we are trying to predict)
-# to be the adjusted close of the row approximately 2520 business (market open) days later to simulate a decade later
+# to be the subsequent row's adjusted close on the following day
 df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
 
+df_aapl['Target Date'] = df_aapl['Date'].shift(-2520)
+
 # Drop the last row to handle NaN values created by the shift
-df_aapl = df_aapl.dropna()
+df_aapl_non = df_aapl.dropna()
 
-# Only keep the  non-earnings rows (ie where Earnings != 1)
-df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+# y_aapl = df_aapl_non['Target Adj Close']
 
-# Separate the features (X) and target variable (y) which is the target adjusted close
-# see report / text comments for further explanation
-y_aapl = df_aapl_non['Target Adj Close']
+# # Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
+# # since we are not considered earnings per share (EPS) estimates
+# X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
 
-# Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
-# since we are not considered earnings per share (EPS) estimates
-X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+# # Split the data into training and testing sets
+# X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
 
-# Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+# Specify the date to split the data
+split_date = '2012-9-01'
+
+# Convert the date column to datetime format if needed
+df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
+
+# Create training and testing sets
+train_set = df_aapl[df_aapl['Date'] < split_date]
+print("train_set")
+print(train_set)
+test_set = df_aapl[df_aapl['Date'] >= split_date]
+print("test_set")
+print(test_set)
+
+# Separate features (X) and target variable (y) for training and testing
+y_train = train_set['Target Adj Close']
+X_train = train_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS', 'Target Date'], axis=1)
+
+y_test_lr = test_set['Target Adj Close']
+X_test = test_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS', 'Target Date'], axis=1)
+
+
+
+
+
+
 
 # Create a StandardScaler
 scaler = StandardScaler()
@@ -679,9 +640,14 @@ print(f"Len of X_aapl: {len(X_aapl_total)}")
 print(f"Len of X_aapl_scaled: {len(X_total_scaled)}")
 
 # Create a DataFrame with cross-validated predictions
-results_df = pd.DataFrame({'Predicted': predictions, 'Actual': y_test})
+results_df_lr = pd.DataFrame({'Predicted': predictions, 'Actual': y_test_lr})
+print("Actual RESULTS_DF_LR WE CARE ABOUT")
+print(len(results_df_lr))
+print("results_df below!!")
+print(results_df_lr)
+
 # Zip the predictions and test values together for ease
-results_tuples = list(zip(predictions, y_test))
+results_tuples = list(zip(predictions, y_test_lr))
 
 predictions_total = linear_regression_model.predict(X_total_scaled)
 results_total_df_lr = pd.DataFrame({'Predicted': predictions_total})
@@ -700,8 +666,6 @@ print("Overall modified Accuracy")
 print(np.mean(Abs_accuracy))
 
 # Evaluate the performance of the regression model
-mse = mean_squared_error(y_test, predictions)
-print(f"Mean Squared Error (adj price in dollars amount off): {mse}")
 
 # Takes in open, high, low, close, volume, earnings (0 for non earnings tomorrow 1 for earnings tomorrow)
 # below is an example value of a non-earnings day sequence provided as an example (2012-02-14)
@@ -736,17 +700,17 @@ print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
 # plt.legend()
 # plt.show()
 
-# # Plot the actual difference between the predicted and actual adjusted close
-# plt.scatter(results_total_df['Actual'], results_total_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
+# Plot the actual difference between the predicted and actual adjusted close
+plt.scatter(results_df_lr['Actual'], results_df_lr['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
 
-# # Plot a diagonal line representing perfect predictions
-# plt.plot([results_total_df['Actual'].min(), results_total_df['Actual'].max()], [results_total_df['Actual'].min(), results_total_df['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+# Plot a diagonal line representing perfect predictions
+plt.plot([results_df_lr['Actual'].min(), results_df_lr['Actual'].max()], [results_df_lr['Actual'].min(), results_df_lr['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
 
-# plt.xlabel('Actual Adjusted Close')
-# plt.ylabel('Predicted Adjusted Close')
-# plt.title('Actual vs Predicted Adjusted Close')
-# plt.legend()
-# plt.show()
+plt.xlabel('Actual Adjusted Close')
+plt.ylabel('Predicted Adjusted Close')
+plt.title('Actual vs Predicted Adjusted Close')
+plt.legend()
+plt.show()
 
 """# Python print to Excel file converter"""
 
@@ -900,11 +864,12 @@ for index, row in df_aapl.iterrows():
     # Check if the current row has "Earnings" equal to 1
     if row['Earnings'] == 1.0:
         # Append the current row
-        selected_rows = selected_rows.append(row)
+        pd.concat([selected_rows, row], ignore_index=True)
         # Check if we are still within bounds of the df
         if ((index + 1 < len(df_aapl))):
           # If so, also append the subsequent non-earnings row to our selected rows
-          selected_rows = selected_rows.append(df_aapl.loc[index + 1])
+          next_row_df = pd.DataFrame(df_aapl.loc[index + 1]).transpose()
+          selected_rows = pd.concat([selected_rows, next_row_df], ignore_index=True)
 
 # Reset the index of the new DataFrame
 selected_rows.reset_index(drop=True, inplace=True)
@@ -1350,7 +1315,7 @@ df_aapl = pd.read_csv('AAPL.csv')
 
 # Assign the target adj close (what we are trying to predict)
 # to be the subsequent row's adjusted close on the following day
-df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-1)
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
 
 # Drop the last row to handle NaN values created by the shift
 df_aapl = df_aapl.dropna()
@@ -1384,7 +1349,7 @@ y_train_scaled = scaler_y.fit_transform(y_train.values.reshape(-1, 1))
 y_test_scaled = scaler_y.transform(y_test.values.reshape(-1, 1))
 
 # Reshape input data to be 3D [samples, time steps, features]
-time_steps = 30  # You can experiment with different time steps
+time_steps = 90  # You can experiment with different time steps
 X_train_reshaped = np.array([X_train_scaled[i:i+time_steps, :] for i in range(len(X_train_scaled)-time_steps+1)])
 X_test_reshaped = np.array([X_test_scaled[i:i+time_steps, :] for i in range(len(X_test_scaled)-time_steps+1)])
 
@@ -1555,19 +1520,20 @@ plt.show()
 
 import numpy as np
 import pandas as pd
-import keras
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error
+import keras
 from keras.models import Sequential
-from keras.layers import LSTM, Dense
-from keras.layers import Dropout
+from keras.layers import LSTM, Dense, Dropout
 
 model = keras.Sequential();
 
 model.add(keras.layers.Dense(6, activation='relu', input_shape=(6,)))
 model.add(keras.layers.Dense(6, activation='relu'))
+model.add(Dropout(0.2))  # Add dropout layer
 model.add(keras.layers.Dense(6, activation='relu'))
+model.add(Dropout(0.2))  # Add dropout layer
 model.add(keras.layers.Dense(1))
 
 model.compile(optimizer='adam', loss='mean_squared_error')
@@ -1579,6 +1545,8 @@ df_aapl = pd.read_csv('AAPL.csv')
 # Assign the target adj close (what we are trying to predict)
 # to be the subsequent row's adjusted close on the following day
 df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
+
+df_aapl['Target Date'] = df_aapl['Date'].shift(-2520)
 
 # Drop the last row to handle NaN values created by the shift
 df_aapl_non = df_aapl.dropna()
@@ -1593,24 +1561,37 @@ df_aapl_non = df_aapl.dropna()
 # X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
 
 # Specify the date to split the data
-split_date = '2012-06-01'
+split_date = '2012-9-01'
 
 # Convert the date column to datetime format if needed
 df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
 
 # Create training and testing sets
 train_set = df_aapl[df_aapl['Date'] < split_date]
+print("train_set")
+print(train_set)
 test_set = df_aapl[df_aapl['Date'] >= split_date]
+print("test_set")
+print(test_set)
 
 # Separate features (X) and target variable (y) for training and testing
 y_train = train_set['Target Adj Close']
-X_train = train_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+X_train = train_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS', 'Target Date'], axis=1)
 
-y_test = test_set['Target Adj Close']
-X_test = test_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+y_test_dnn = test_set['Target Adj Close']
+X_test = test_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS', 'Target Date'], axis=1)
 
+print("X_train set")
+print(X_train)
 
+print("y_train set")
+print(y_train)
 
+print("X_test set")
+print(len(X_test))
+
+print("y_test set")
+print(y_test_dnn)
 
 # Create a StandardScaler
 scaler = StandardScaler()
@@ -1621,21 +1602,21 @@ X_train_scaled = scaler.fit_transform(X_train)
 # Transform the test data using the scaler
 X_test_scaled = scaler.transform(X_test)
 
+model.fit(X_train_scaled, y_train, epochs=150, callbacks=[keras.callbacks.EarlyStopping(patience=5)])
 
-model.fit(X_train_scaled, y_train, epochs=200, callbacks=[keras.callbacks.EarlyStopping(patience=5)])
-
-y_pred = model.predict(X_test_scaled)
+y_pred_dnn = model.predict(X_test_scaled)
 
 # Create a DataFrame to display actual values and predictions
-results_df = pd.DataFrame({'Predicted': y_pred.flatten(), 'Actual': y_test})
+results_df_dnn = pd.DataFrame({'Predicted': y_pred_dnn.flatten(), 'Actual': y_test_dnn})
+print("results_df below!!")
+print(results_df_dnn)
 
 # Plot the predictions and actual results
-plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
-# plt.scatter(results_df.index, results_df['Predicted'], color='green', label='DNN')
-# plt.scatter(results_total_df_dnn.index, results_total_df_dnn['Predicted'], color='red', label='Actual')
+# Plot the actual difference between the predicted and actual adjusted close
+plt.scatter(results_df_dnn['Actual'], results_df_dnn['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
 
 # Plot a diagonal line representing perfect predictions
-plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], [results_df['Actual'].min(), results_df['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+plt.plot([results_df_dnn['Actual'].min(), results_df_dnn['Actual'].max()], [results_df_dnn['Actual'].min(), results_df_dnn['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
 
 plt.xlabel('Actual Adjusted Close')
 plt.ylabel('Predicted Adjusted Close')
@@ -1644,10 +1625,10 @@ plt.legend()
 plt.show()
 
 # Custom predictor below
-# fut_data = np.array([19.695715,19.716785,19.282143,19.309643,426739600,0])
-# fut_data_scaled = scaler.transform(fut_data.reshape(1,6))
-# y_pred_fut = model.predict(fut_data_scaled.reshape(1,6), batch_size=1)
-# print(f"2031 prediction: {y_pred_fut}")
+fut_data = np.array([19.675358,19.903214,19.564644,19.696787,379985200,0])
+fut_data_scaled = scaler.transform(fut_data.reshape(1,6))
+y_pred_fut = model.predict(fut_data_scaled.reshape(1,6), batch_size=1)
+print(f"2031 prediction: {y_pred_fut}")
 
 
 df_aapl_total = pd.read_csv('AAPL.csv')
@@ -1668,30 +1649,46 @@ results_total_df_dnn = pd.DataFrame({'Predicted': predictions_total.flatten()})
 
 """# A Visual Between Actual Values, Linear Regressor, and DNN
 
-Possibly?
+How well do the trends line up?
 """
 
-# Plot only Model 1 predictions
-plt.scatter(results_total_df_lr.index, results_total_df_lr['Predicted'], color='blue', label='Linear Regressor')
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
-# Plot only Model 2 predictions
-plt.scatter(results_total_df_dnn.index, results_total_df_dnn['Predicted'], color='green', label='DNN')
+# Assuming results_df is your DataFrame containing predicted values
+results_df_dnn = pd.DataFrame({'Predicted': y_pred_dnn.flatten(), 'Actual': y_test_dnn, 'Target Date': test_set['Target Date']})
+
+print(len(results_df_dnn['Predicted']))
+# Filter out rows where 'Target Date' is not None
+results_df_dnn = results_df_dnn.dropna(subset=['Target Date'])
+
+print(results_df_lr)
+results_df_lr = results_df_lr.dropna(subset=['Actual'])
+
+# Convert 'Target Date' to datetime format
+results_df_dnn['Target Date'] = pd.to_datetime(results_df_dnn['Target Date'])
+
+# Plot only DNN predictions
+plt.scatter(results_df_dnn['Target Date'], results_df_dnn['Predicted'], color='blue', label='DNN')
+
+print(len(results_df_lr[['Predicted']]))
+print(len(results_df_dnn['Target Date']))
+print(len(results_df_dnn['Predicted']))
+# Plot only LR predictions
+plt.scatter(results_df_dnn['Target Date'], results_df_lr['Predicted'], color='green', label='Linear Regressor')
 
 # Plot actual values
-df_aapl = pd.read_csv('AAPL.csv')
+plt.scatter(results_df_dnn['Target Date'], results_df_dnn['Actual'], color='red', label='Actual')
 
-# Assign the target adj close (what we are trying to predict)
-# to be the subsequent row's adjusted close on the following day
-df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
-
-# Drop the last row to handle NaN values created by the shift
-df_aapl_non = df_aapl.dropna()
-
-# Plot only Model 2 predictions
-plt.scatter(df_aapl_non.index, df_aapl_non['Adj Close'], color='red', label='Adj')
-
-plt.xlabel('Index (or any appropriate x-axis label)')
+plt.xlabel('Target Date')
 plt.ylabel('Predicted/Actual Adjusted Close')
-plt.title('Predicted Adjusted Close for Different Models and Actual Values')
+plt.title('Predicted Adjusted Close vs Actual Values')
 plt.legend()
+
+# Set x-axis ticks to show only each month
+plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+
+plt.gcf().autofmt_xdate()  # Rotate date labels for better visibility
+
 plt.show()
