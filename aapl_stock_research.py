@@ -8,35 +8,54 @@ Original file is located at
 
 # Big Tech Stock Predictor
 
-The goal of this project is to use AAPL stock as a tool to leverage different machine learning and deep learning regressors to predict the stock price / movement across an array of intervals to see how accurate ML / DL models can be.
+The goal of this project is to use AAPL stock as a tool to leverage different machine learning and deep learning regressors to predict the stock price / movement across an array of intervals to see how accurate ML / DL models can be in forecasting prices.
 
 **What is being predicted?**
 
-The predicted feature for this research is the adjusted close as this is the standard for comparing price of a security irregardless of security splits / other external factors, and thus this will be the target feature that the regressors will be trying to estimate.
+The predicted feature is the adjusted close as this is the standard for comparing the price of a security regardless of security splits / other external factors, and thus this will be the target feature that the regressors will be trying to estimate.
+
+**What are the considerations and insights needed for this project?**
+
+*Time-Shift*
+
+*  
+Note also that the target variable - actual adj close - varies depending on the time frame we are trying to predict as it shifts depending on how far out we are attempting to forecast into the future.
+
+*Leaking Future Information to Models*
+
+*   Note also that it is important to be very intentional about how the data is partitioned, otherwise we can potentially leak future information about future adj close prices to the model, which can lead to overfitting and false predictive power. Thus, for all models where leakage is especially damaging (ie 1 year and 10 year predictions) this has been accounted for.
+
+*Isn't predicting a decade out impossible?*
+
+*  For all intensive purposes, yes. It is virtually impossible to accurately predict any security's price and account for market conditions years out. This is simply an experiment to see how the models perform after attempting to prevent all overfitting, info leakage, and other issues. I do find some interesting results that will be discussed at the end of the file.
 
 # Data Pre-Processing
 
-In this step, we are preparing the data to be used in training the models.
+**Featuring Engineering?**
 
 Note that feature engineering has already been performed manually on this dataset to add in extra columns, and thus the resulting CSV file is already engineered. I added in manually the column for Earnings (0 representing non-earnings the next day and 1 representing an earnings report the following day), and also predicted EPS (earnings per share) and actual EPS columns.
+
+**Market Sentiment?**
+
+I believe adding the EPS feature is crucial for model prediction, as it offers a view into the sentiment of the market at the time period, which is impossible to guage through metrics like high, low, etc.
+
+**Citations**
 
 Citation for AAPL stock inital data: https://www.kaggle.com/datasets/evangower/big-tech-stock-prices/?select=AAPL.csv
 
 Citation for Earnings, Predicted and Actual EPS data: https://www.alphaquery.com/stock/AAPL/earnings-history
-
-Note also that our target variable - actual adj close - varies depending on the time frame we are trying to predict as it shifts depending on how far out we are attempting to forecast.
 """
 
 import pandas as pd
 import numpy as np
 import seaborn as sns
+import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import cross_val_predict
-import matplotlib.pyplot as plt
 
 df_aapl = pd.read_csv('AAPL.csv')
 
@@ -48,7 +67,10 @@ df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
 # Extract the timestamp from the datetime and convert it to float
 df_aapl['Date'] = df_aapl['Date'].apply(lambda x: x.timestamp())
 
-"""# Visualization of features"""
+"""# Visualization of features
+
+Just how correlated are our features exactly?
+"""
 
 correlation_matrix = df_aapl.corr()
 
@@ -60,7 +82,7 @@ sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', linewidths=.5)
 plt.title('Correlation Matrix of AAPL Stock Features')
 plt.show()
 
-# Linear Regression Model
+"""# Linear Regression Model
 
 **Next Day Prediction (non-earnings eve)**
 
@@ -88,13 +110,9 @@ X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated E
 # Split the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
 
-# Create a StandardScaler
+# Create a StandardScaler and apply to train and test data
 scaler = StandardScaler()
-
-# Fit and transform the scaler on the training data
 X_train_scaled = scaler.fit_transform(X_train)
-
-# Transform the test data using the scaler
 X_test_scaled = scaler.transform(X_test)
 
 # Create a linear regression model
@@ -147,15 +165,6 @@ print(f"Linear Regression model predicted for next day: {custom_predictions}")
 print("Accuracy of Custom Prediction:")
 print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
 
-# Plot the results of cross-validated predictions
-plt.scatter(y_aapl, predicted, color='blue', label='Cross-validated predictions')
-plt.plot([y_aapl.min(), y_aapl.max()], [y_aapl.min(), y_aapl.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
-plt.xlabel('Actual')
-plt.ylabel('Predicted')
-plt.title('Cross-validated Predictions vs. Actual')
-plt.legend()
-plt.show()
-
 # Plot the actual difference between the predicted and actual adjusted close
 plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
 
@@ -172,7 +181,7 @@ plt.show()
 
 In the above graphs, we can see a very interested spread of our model's predictions. In the Actual vs Predicted Adjusted Close graph, we can see that the linear regression model is quite accurate at the start of the actual adjusted close price, but as the adjusted close price goes on (and thus time also increases due to correlation), we see that the model is less accurate with its predictions straying further from the perfect prediction trend line. This phenomena also extends to the accuracy of the cross-validated predictions as well, and can be best explained through the increase of market volatility over recent years.
 
-Market volatility will likely become even more prevalent as time goes on, and thus is something that must be accounted for in making predictions. However, it is interesting that its visualization is so readily obvious in the above graphs.
+Market volatility will likely become even more prevalent as time goes on, and thus is something that must be accounted for in making predictions. However, it is interesting that its visualization is readily apparent in the above graph.
 
 **Next Day Prediction (earnings eve)**
 """
@@ -216,13 +225,9 @@ X_aapl = df_aapl_earn.drop(['Adj Close', 'Target Adj Close', 'Date'], axis=1)
 # Split the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
 
-# Create a StandardScaler
+# Create a StandardScaler and apply to train and test data
 scaler = StandardScaler()
-
-# Fit and transform the scaler on the training data
 X_train_scaled = scaler.fit_transform(X_train)
-
-# Transform the test data using the scaler
 X_test_scaled = scaler.transform(X_test)
 
 # Create a linear regression model
@@ -275,15 +280,6 @@ print(f"Linear Regression model predicted for next earnings day: {custom_predict
 print("Accuracy of Custom Prediction:")
 print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
 
-# Plot the results of cross-validated predictions
-plt.scatter(y_aapl, predicted, color='blue', label='Cross-validated predictions')
-plt.plot([y_aapl.min(), y_aapl.max()], [y_aapl.min(), y_aapl.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
-plt.xlabel('Actual')
-plt.ylabel('Predicted')
-plt.title('Cross-validated Predictions vs. Actual')
-plt.legend()
-plt.show()
-
 # Plot the actual difference between the predicted and actual adjusted close
 plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
 
@@ -298,9 +294,11 @@ plt.show()
 
 """**Analysis of earnings eve results**
 
-Similar to the above non-earnings eve results, we can see that our linear regression model performs much more accurately when the actual adjusted close price is lower, and becomes more erratic as the share price increases, ie time goes on. Besides having much fewer data points to work with, earnings is particularly interesting as it is readily known that even if a company beats earnings estimates, the stock price can still decrease based on the whims of the market and other external factors, thus, achieving accuracy with the linear regression model for this application is difficult but intriguing. As in recent years past, with increased market volatility we can see this trend demonstrated yet again across both the cross-validated prediction and predicted adjusted close vs actual.
+The Predicted Adjusted Close seems to be quite accurate, which is suspicious and could possibly be the result of data leakage to the Linear Regressor. This remains to be explored further.
 
 **Next Month Stock Prediction (non-earnings)**
+
+*Shift Value: 22 days*
 
 Note that the shift for the monthly data is not quite as linear as simply shifting over by 1 for the subsequent day due to varying month length. Instead, an average has been taken between different months to use an approximation of the number of market open days that elaspses in a monthly interval. An approximation of 22 market open days between monthly intervals was found to best estimate this shift.
 """
@@ -329,13 +327,9 @@ X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated E
 # Split the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
 
-# Create a StandardScaler
+# Create a StandardScaler and apply to train and test data
 scaler = StandardScaler()
-
-# Fit and transform the scaler on the training data
 X_train_scaled = scaler.fit_transform(X_train)
-
-# Transform the test data using the scaler
 X_test_scaled = scaler.transform(X_test)
 
 # Create a linear regression model
@@ -388,15 +382,6 @@ print(f"Linear Regression model predicted for next month: {custom_predictions}")
 print("Accuracy of Custom Prediction:")
 print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
 
-# Plot the results of cross-validated predictions
-plt.scatter(y_aapl, predicted, color='blue', label='Cross-validated predictions')
-plt.plot([y_aapl.min(), y_aapl.max()], [y_aapl.min(), y_aapl.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
-plt.xlabel('Actual')
-plt.ylabel('Predicted')
-plt.title('Cross-validated Predictions vs. Actual')
-plt.legend()
-plt.show()
-
 # Plot the actual difference between the predicted and actual adjusted close
 plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
 
@@ -409,9 +394,21 @@ plt.title('Actual vs Predicted Adjusted Close')
 plt.legend()
 plt.show()
 
-"""**Next Year Stock Prediction (non-earnings)**
+"""**Analysis of next Month prediction**
+
+Once again you can readily see Market Volatility increase as time goes on.
+
+**Next Year Stock Prediction (non-earnings)**
+
+*Shift Value: 250 days*
 
 To determine the 250 value as the proper amount to shift, I used the .tail() method to see the last values of the df, and adjusted the amount so that the tail end of the data cut off as close to 1 year earlier as possible, ensuring the closest possible business day shift for the dataset. Also manual testing was performed in Excel to ensure 250 provided a realistic shift to simulate a year.
+
+This is relatively a suitable estimate, as Wikipedia states that on average, the NASDAQ and NYSE average [about 252 trading days in a year. ](https://)
+
+*Train/Test Split*
+
+Note that we also start splitting the data into training and test sets more intentionally now to prevent future data leakage.
 """
 
 # Reset the df back to pre-shift to prepare for the monthly shift
@@ -422,29 +419,30 @@ df_aapl = pd.read_csv('AAPL.csv')
 df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-250)
 
 # Drop the last row to handle NaN values created by the shift
-df_aapl = df_aapl.dropna()
+df_aapl_non = df_aapl.dropna()
 
-# Only keep the  non-earnings rows (ie where Earnings != 1)
-df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+# Split the data into training and testing sets, giving us the date range for testing
+# where start_date starts the training data, and end_date ends the training data
+start_date = '2020-12-31'
+end_date = '2021-12-31'
 
-# Separate the features (X) and target variable (y) which is the target adjusted close
-# see report / text comments for further explanation
-y_aapl = df_aapl_non['Target Adj Close']
+# Convert the date column to datetime format if needed
+df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
 
-# Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
-# since we are not considered earnings per share (EPS) estimates
-X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+# Create training and testing sets
+train_set = df_aapl[df_aapl['Date'] < start_date]
+test_set = df_aapl[(df_aapl['Date'] >= start_date) & (df_aapl['Date'] <= end_date)]
 
-# Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+# Separate features (X) and target variable (y) for training and testing
+y_train = train_set['Target Adj Close']
+X_train = train_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
 
-# Create a StandardScaler
+y_test = test_set['Target Adj Close']
+X_test = test_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# Create a StandardScaler and apply to train and test data
 scaler = StandardScaler()
-
-# Fit and transform the scaler on the training data
 X_train_scaled = scaler.fit_transform(X_train)
-
-# Transform the test data using the scaler
 X_test_scaled = scaler.transform(X_test)
 
 # Create a linear regression model
@@ -464,13 +462,9 @@ results_df = pd.DataFrame({'Predicted': predictions, 'Actual': y_test})
 # Zip the predictions and test values together for ease
 results_tuples = list(zip(predictions, y_test))
 
-print(f"Overall size of predictions for a year out: {len(results_df)}")
-
 # This accuracy represents how "off" the results are between our prediction for each row and the actual value
 # of the adjusted close (using abs val)
 Abs_accuracy = (1 - np.abs(1 - results_df['Predicted'] / results_df['Actual']))
-print("Overall modified Accuracy")
-print(np.mean(Abs_accuracy))
 
 # Evaluate the performance of the regression model
 mse = mean_squared_error(y_test, predictions)
@@ -498,15 +492,6 @@ print(f"Linear Regression model predicted for next year: {custom_predictions}")
 
 print("Accuracy of Custom Prediction:")
 print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
-
-# Plot the results of cross-validated predictions
-plt.scatter(y_aapl, predicted, color='blue', label='Cross-validated predictions')
-plt.plot([y_aapl.min(), y_aapl.max()], [y_aapl.min(), y_aapl.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
-plt.xlabel('Actual')
-plt.ylabel('Predicted')
-plt.title('Cross-validated Predictions vs. Actual')
-plt.legend()
-plt.show()
 
 # Plot the actual difference between the predicted and actual adjusted close
 plt.scatter(results_df['Actual'], results_df['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
@@ -579,17 +564,20 @@ df_aapl_non = df_aapl.dropna()
 # # Split the data into training and testing sets
 # X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
 
-# Specify the date to split the data
-split_date = '2012-9-01'
+# Split the data into training and testing sets, giving us the date range for testing
+# where start_date starts the training data, and end_date ends the training data
+start_date = '2012-09-30'
+end_date = '2012-12-31'
 
 # Convert the date column to datetime format if needed
 df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
 
 # Create training and testing sets
-train_set = df_aapl[df_aapl['Date'] < split_date]
+train_set = df_aapl[df_aapl['Date'] < start_date]
 print("train_set")
 print(train_set)
-test_set = df_aapl[df_aapl['Date'] >= split_date]
+
+test_set = df_aapl[(df_aapl['Date'] >= start_date) & (df_aapl['Date'] <= end_date)]
 print("test_set")
 print(test_set)
 
@@ -600,19 +588,9 @@ X_train = train_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EP
 y_test_lr = test_set['Target Adj Close']
 X_test = test_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS', 'Target Date'], axis=1)
 
-
-
-
-
-
-
-# Create a StandardScaler
+# Create a StandardScaler and scale train and test data
 scaler = StandardScaler()
-
-# Fit and transform the scaler on the training data
 X_train_scaled = scaler.fit_transform(X_train)
-
-# Transform the test data using the scaler
 X_test_scaled = scaler.transform(X_test)
 
 # Create a linear regression model
@@ -641,6 +619,7 @@ print(f"Len of X_aapl_scaled: {len(X_total_scaled)}")
 
 # Create a DataFrame with cross-validated predictions
 results_df_lr = pd.DataFrame({'Predicted': predictions, 'Actual': y_test_lr})
+results_df_lr = results_df_lr.dropna()
 print("Actual RESULTS_DF_LR WE CARE ABOUT")
 print(len(results_df_lr))
 print("results_df below!!")
@@ -691,15 +670,6 @@ print(f"Linear Regression model predicted for next decade: {custom_predictions}"
 print("Accuracy of Custom Prediction:")
 print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
 
-# Plot the results of cross-validated predictions
-# plt.scatter(y_aapl, predicted, color='blue', label='Cross-validated predictions')
-# plt.plot([y_aapl.min(), y_aapl.max()], [y_aapl.min(), y_aapl.max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
-# plt.xlabel('Actual')
-# plt.ylabel('Predicted')
-# plt.title('Cross-validated Predictions vs. Actual')
-# plt.legend()
-# plt.show()
-
 # Plot the actual difference between the predicted and actual adjusted close
 plt.scatter(results_df_lr['Actual'], results_df_lr['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
 
@@ -711,20 +681,6 @@ plt.ylabel('Predicted Adjusted Close')
 plt.title('Actual vs Predicted Adjusted Close')
 plt.legend()
 plt.show()
-
-"""# Python print to Excel file converter"""
-
-space_delimited_data = """
-"""
-
-# Split the data by space and create a list of numbers
-numbers = space_delimited_data.split()
-
-# Create a DataFrame with a single column
-df = pd.DataFrame({'Numbers': numbers})
-
-# Export the DataFrame to Excel
-df.to_excel('/usr/output_aapl_pred4.xlsx', index=False)
 
 """# Random Forest Regressor
 
