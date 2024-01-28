@@ -543,17 +543,20 @@ df_aapl_non = df_aapl.dropna()
 # # Split the data into training and testing sets
 # X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
 
-# Specify the date to split the data
-split_date = '2012-9-01'
+# Split the data into training and testing sets, giving us the date range for testing
+# where start_date starts the training data, and end_date ends the training data
+start_date = '2012-09-30'
+end_date = '2012-12-31'
 
 # Convert the date column to datetime format if needed
 df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
 
 # Create training and testing sets
-train_set = df_aapl[df_aapl['Date'] < split_date]
+train_set = df_aapl[df_aapl['Date'] < start_date]
 print("train_set")
 print(train_set)
-test_set = df_aapl[df_aapl['Date'] >= split_date]
+
+test_set = df_aapl[(df_aapl['Date'] >= start_date) & (df_aapl['Date'] <= end_date)]
 print("test_set")
 print(test_set)
 
