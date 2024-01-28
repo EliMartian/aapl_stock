@@ -1724,7 +1724,7 @@ plt.show()
 
 """# Seem suspiciously close to the shape of Covid below?"""
 
-# Plot of AAPL from 2010-2022
+# Plot AAPL from 2010-2022
 plt.scatter(df_aapl['Date'], df_aapl['Adj Close'], color='black', label='Actual')
 
 plt.xlabel('Date')
