@@ -29,6 +29,10 @@ Note also that the target variable - actual adj close - varies depending on the 
 
 *  For all intensive purposes, yes. It is virtually impossible to accurately predict any security's price and account for market conditions years out. This is simply an experiment to see how the models perform after attempting to prevent all overfitting, info leakage, and other issues. I do find some interesting results that will be discussed at the end of the file.
 
+*Is there a difference in the time series of what the traditional ML models are predicting and what the DL models are predicting?*
+
+* Yes, the ML models predict both the next day adjusted close for earnings and non-earnings days, as well as both a month, year and decade in the future. The DL models focus exclusively on the next year / decade prediction, as these are more suitable tasks for the predictive power / visualization comparison I am going for.
+
 # Data Pre-Processing
 
 **Featuring Engineering?**
@@ -404,7 +408,7 @@ Once again you can readily see Market Volatility increase as time goes on.
 
 To determine the 250 value as the proper amount to shift, I used the .tail() method to see the last values of the df, and adjusted the amount so that the tail end of the data cut off as close to 1 year earlier as possible, ensuring the closest possible business day shift for the dataset. Also manual testing was performed in Excel to ensure 250 provided a realistic shift to simulate a year.
 
-This is relatively a suitable estimate, as Wikipedia states that on average, the NASDAQ and NYSE average [about 252 trading days in a year. ](https://)
+This is relatively a suitable estimate, as Wikipedia states that on average, the NASDAQ and NYSE average [about 252 trading days in a year. ](https://en.wikipedia.org/wiki/Trading_day#:~:text=The%20NYSE%20and%20NASDAQ%20average%20about%20252%20trading%20days%20a%20year.)
 
 *Train/Test Split*
 
@@ -472,9 +476,7 @@ print(f"Mean Squared Error (adj price in dollars amount off): {mse}")
 
 # Takes in open, high, low, close, volume, earnings (0 for non earnings tomorrow 1 for earnings tomorrow)
 # below is an example value of a non-earnings day sequence provided as an example (2018-08-21)
-# custom_values = np.array([[54.200001,54.297501,53.507500,53.759998,104639200,0]])
-
-custom_values = np.array([[181.27,183.89,180.97,183.79,54274900,0]])
+custom_values = np.array([[54.200001,54.297501,53.507500,53.759998,104639200,0]])
 
 # This would be the adj close at date 2019-08-21
 actual_adj_value = 51.923771
@@ -505,43 +507,20 @@ plt.title('Actual vs Predicted Adjusted Close')
 plt.legend()
 plt.show()
 
-"""**Next Decade Stock Prediction (non-earnings)**
+"""**Analysis of next Year prediction**
 
-The 2520 value as the approximation for business days in a decade was found to be most suitable for this dataset using a similar method as the yearly shift estimate in the above cell.
+It is pretty clear that the Linear Regressor model is not quite exactly picking up the trend in adjusted close price over the 2022 test year.
+
+One interesting this, is that the Linear Regressor can't comprehend that the next year custom prediction value (from late August 2018 to August 2019) would actually decline over a year, as it tries to estimate
+
+Linear Regression model predicted for next year: ~70
+
+**Next Decade Stock Prediction (non-earnings)**
+
+*Shift Value: 2520 days*
+
+The 2520 value as the approximation for business days in a decade was found to be most suitable for this dataset using a similar method as the yearly shift estimate in the above cell using the .tail() method. This is also supported by the earlier reference that states [the typical trading year has 252 market open days in it.](https://en.wikipedia.org/wiki/Trading_day#:~:text=The%20NYSE%20and%20NASDAQ%20average%20about%20252%20trading%20days%20a%20year.)
 """
-
-# # Reset the df back to pre-shift to prepare for the monthly shift
-# df_aapl = pd.read_csv('AAPL.csv')
-
-# df_aapl = df_aapl.dropna(subset=['Date'])
-
-# # Convert the 'Date' column to datetime type
-# # df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
-
-# # # Extract the timestamp from the datetime and convert it to float
-# # df_aapl['Date'] = df_aapl['Date'].apply(lambda x: x.timestamp())
-
-# # Assign the target adj close (what we are trying to predict)
-# # to be the adjusted close of the row approximately 2520 business (market open) days later to simulate a decade later
-# df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
-
-# # Drop the last row to handle NaN values created by the shift
-# df_aapl = df_aapl.dropna()
-
-# # Only keep the  non-earnings rows (ie where Earnings != 1)
-# df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
-
-# # Separate the features (X) and target variable (y) which is the target adjusted close
-# # see report / text comments for further explanation
-# y_aapl = df_aapl_non['Target Adj Close']
-
-# # Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
-# # since we are not considered earnings per share (EPS) estimates
-# X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
-
-# # Split the data into training and testing sets
-# X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
-
 
 # Reset the df back to pre-shift to prepare for the monthly shift
 df_aapl = pd.read_csv('AAPL.csv')
@@ -604,26 +583,16 @@ linear_regression_model.fit(X_train_scaled, y_train)
 
 # Make predictions on the scaled test data
 predictions = linear_regression_model.predict(X_test_scaled)
-
 df_aapl_total = pd.read_csv('AAPL.csv')
-
 df_aapl_total = df_aapl_total.dropna(subset=['Date'])
-
 X_aapl_total = df_aapl_total.drop(['Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
 
 # Create a new value for all predictions
 X_total_scaled = scaler.transform(X_aapl_total)
 
-print(f"Len of X_aapl: {len(X_aapl_total)}")
-print(f"Len of X_aapl_scaled: {len(X_total_scaled)}")
-
 # Create a DataFrame with cross-validated predictions
 results_df_lr = pd.DataFrame({'Predicted': predictions, 'Actual': y_test_lr})
 results_df_lr = results_df_lr.dropna()
-print("Actual RESULTS_DF_LR WE CARE ABOUT")
-print(len(results_df_lr))
-print("results_df below!!")
-print(results_df_lr)
 
 # Zip the predictions and test values together for ease
 results_tuples = list(zip(predictions, y_test_lr))
@@ -631,12 +600,106 @@ results_tuples = list(zip(predictions, y_test_lr))
 predictions_total = linear_regression_model.predict(X_total_scaled)
 results_total_df_lr = pd.DataFrame({'Predicted': predictions_total})
 
+# This accuracy represents how "off" the results are between our prediction for each row and the actual value
+# of the adjusted close (using abs val)
+Abs_accuracy = (1 - np.abs(1 - results_df['Predicted'] / results_df['Actual']))
 
-# print("incoming results for looop")
-# for i in range(len(predictions_total)):
-#   print(predictions_total[i])
+# Takes in open, high, low, close, volume, earnings (0 for non earnings tomorrow 1 for earnings tomorrow)
+# below is an example value of a non-earnings day sequence provided as an example (2012-02-14)
+custom_values = np.array([[18.023571,18.198570,17.928572,18.195000,460398400,0]])
 
-print(f"Overall size of predictions for a decade out: {len(results_df)}")
+# This would be the date (2022-02-14)
+actual_adj_value = 168.119446
+
+# Scale the custom input values using a standard scaker
+custom_values_scaled = scaler.transform(custom_values)
+
+# Make predictions with the linear regression model
+# for our custom values (test example 2012-02-14 predicting 2022-02-14
+custom_predictions = linear_regression_model.predict(custom_values_scaled)
+
+# Print the predictions
+print(f"Custom Prediction for next decade, actual adj close is {actual_adj_value}")
+print(f"Linear Regression model predicted for next decade: {custom_predictions}")
+
+print("Accuracy of Custom Prediction:")
+print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
+
+# Plot the actual difference between the predicted and actual adjusted close
+plt.scatter(results_df_lr['Actual'], results_df_lr['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
+
+# Plot a diagonal line representing perfect predictions
+plt.plot([results_df_lr['Actual'].min(), results_df_lr['Actual'].max()], [results_df_lr['Actual'].min(), results_df_lr['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+
+plt.xlabel('Actual Adjusted Close')
+plt.ylabel('Predicted Adjusted Close')
+plt.title('Actual vs Predicted Adjusted Close')
+plt.legend()
+plt.show()
+
+"""# Decade Prediction w/out Leakage Prevention
+
+(and more data points)
+"""
+
+# Reset the df back to pre-shift to prepare for the monthly shift
+df_aapl = pd.read_csv('AAPL.csv')
+
+df_aapl = df_aapl.dropna(subset=['Date'])
+
+# Assign the target adj close (what we are trying to predict)
+# to be the adjusted close of the row approximately 2520 business (market open) days later to simulate a decade later
+df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
+
+# Drop the last row to handle NaN values created by the shift
+df_aapl = df_aapl.dropna()
+
+# Only keep the  non-earnings rows (ie where Earnings != 1)
+df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
+
+# Separate the features (X) and target variable (y) which is the target adjusted close
+# see report / text comments for further explanation
+y_aapl = df_aapl_non['Target Adj Close']
+
+# Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
+# since we are not considered earnings per share (EPS) estimates
+X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
+
+# Create a StandardScaler and scale train and test data
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Create a linear regression model
+linear_regression_model = LinearRegression()
+
+# Perform cross-validated predictions
+predicted = cross_val_predict(linear_regression_model, X_aapl, y_aapl, cv=10)
+
+# Train the regression model on the scaled training data
+linear_regression_model.fit(X_train_scaled, y_train)
+
+# Make predictions on the scaled test data
+predictions = linear_regression_model.predict(X_test_scaled)
+df_aapl_total = pd.read_csv('AAPL.csv')
+df_aapl_total = df_aapl_total.dropna(subset=['Date'])
+X_aapl_total = df_aapl_total.drop(['Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
+
+# Create a new value for all predictions
+X_total_scaled = scaler.transform(X_aapl_total)
+
+# Create a DataFrame with cross-validated predictions
+results_df_lr_fake = pd.DataFrame({'Predicted': predictions, 'Actual': y_test})
+results_df_lr_fake = results_df_lr_fake.dropna()
+
+# Zip the predictions and test values together for ease
+results_tuples = list(zip(predictions, y_test_lr))
+
+predictions_total = linear_regression_model.predict(X_total_scaled)
+results_total_df_lr = pd.DataFrame({'Predicted': predictions_total})
 
 # This accuracy represents how "off" the results are between our prediction for each row and the actual value
 # of the adjusted close (using abs val)
@@ -671,10 +734,10 @@ print("Accuracy of Custom Prediction:")
 print((1 - np.abs(1 - custom_predictions / actual_adj_value)) * 100)
 
 # Plot the actual difference between the predicted and actual adjusted close
-plt.scatter(results_df_lr['Actual'], results_df_lr['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
+plt.scatter(results_df_lr_fake['Actual'], results_df_lr_fake['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
 
 # Plot a diagonal line representing perfect predictions
-plt.plot([results_df_lr['Actual'].min(), results_df_lr['Actual'].max()], [results_df_lr['Actual'].min(), results_df_lr['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
+plt.plot([results_df_lr_fake['Actual'].min(), results_df_lr_fake['Actual'].max()], [results_df_lr_fake['Actual'].min(), results_df_lr_fake['Actual'].max()], linestyle='--', color='red', linewidth=2, label='Perfect Predictions')
 
 plt.xlabel('Actual Adjusted Close')
 plt.ylabel('Predicted Adjusted Close')
@@ -730,8 +793,10 @@ X_test_scaled = scaler.transform(X_test)
 rf_regressor = RandomForestRegressor()
 
 param_grid = {
-    'n_estimators': [50, 100, 200],
-    'max_depth': [5, 7, 10],
+    'n_estimators': [50, 100],
+    'max_depth': [5, 7],
+    'min_samples_split': [2, 5],
+    'min_samples_leaf': [1, 2],
 }
 
 # Perform grid search with cross-validation
@@ -854,8 +919,10 @@ X_test_scaled = scaler.transform(X_test)
 rf_regressor = RandomForestRegressor()
 
 param_grid = {
-    'n_estimators': [50, 100, 200],
-    'max_depth': [5, 7, 10],
+    'n_estimators': [50, 100],
+    'max_depth': [5, 7],
+    'min_samples_split': [2, 5],
+    'min_samples_leaf': [1, 2],
 }
 
 # Perform grid search with cross-validation
@@ -961,8 +1028,10 @@ X_test_scaled = scaler.transform(X_test)
 rf_regressor = RandomForestRegressor()
 
 param_grid = {
-    'n_estimators': [50, 100, 200],
-    'max_depth': [5, 7, 10],
+    'n_estimators': [50, 100],
+    'max_depth': [5, 7],
+    'min_samples_split': [2, 5],
+    'min_samples_leaf': [1, 2],
 }
 
 # Perform grid search with cross-validation
@@ -1066,8 +1135,10 @@ X_test_scaled = scaler.transform(X_test)
 rf_regressor = RandomForestRegressor()
 
 param_grid = {
-    'n_estimators': [50, 100, 200],
-    'max_depth': [5, 7, 10],
+    'n_estimators': [50, 100],
+    'max_depth': [5, 7],
+    'min_samples_split': [2, 5],
+    'min_samples_leaf': [1, 2],
 }
 
 # Perform grid search with cross-validation
@@ -1144,20 +1215,15 @@ df_aapl['Target Adj Close'] = df_aapl['Adj Close'].shift(-2520)
 # Drop the last row to handle NaN values created by the shift
 df_aapl = df_aapl.dropna()
 
-# # Only keep the  non-earnings rows (ie where Earnings != 1)
-# df_aapl_non = df_aapl[df_aapl['Earnings'] != 1]
-
 # Specify the date to split the data
 split_date = '2012-06-01'
 
-# Convert the date column to datetime format if needed
+# Convert the date column to datetime format
 df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
 
 # Create training and testing sets
 train_set = df_aapl[df_aapl['Date'] < split_date]
-print(f"What is train set: {train_set}")
 test_set = df_aapl[df_aapl['Date'] >= split_date]
-print(f"What is test set: {test_set}")
 
 # Separate features (X) and target variable (y) for training and testing
 y_train = train_set['Target Adj Close']
@@ -1165,10 +1231,6 @@ X_train = train_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EP
 
 y_test = test_set['Target Adj Close']
 X_test = test_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
-
-
-print(f"y_test {y_test}")
-print(f"X_test {X_test}")
 
 # Create a StandardScaler
 scaler = StandardScaler()
@@ -1183,10 +1245,10 @@ X_test_scaled = scaler.transform(X_test)
 rf_regressor = RandomForestRegressor()
 
 param_grid = {
-    'n_estimators': [50, 100, 250],
-    'max_depth': [5, 10, 20, 30],
-    'min_samples_split': [2, 5, 10],
-    'min_samples_leaf': [1, 2, 4],
+    'n_estimators': [50, 100],
+    'max_depth': [5, 7],
+    'min_samples_split': [2, 5],
+    'min_samples_leaf': [1, 2],
 }
 
 # Perform grid search with cross-validation
@@ -1254,7 +1316,10 @@ plt.title('Actual vs Predicted Adjusted Close')
 plt.legend()
 plt.show()
 
-"""# Long-Short Term Memory"""
+"""# New Section
+
+# Long-Short Term Memory
+"""
 
 import numpy as np
 import pandas as pd
@@ -1472,7 +1537,7 @@ plt.title('Actual vs Predicted Adjusted Close')
 plt.legend()
 plt.show()
 
-"""# Test DNN"""
+"""# Feedforward Neural Network"""
 
 import numpy as np
 import pandas as pd
@@ -1507,15 +1572,6 @@ df_aapl['Target Date'] = df_aapl['Date'].shift(-2520)
 # Drop the last row to handle NaN values created by the shift
 df_aapl_non = df_aapl.dropna()
 
-# y_aapl = df_aapl_non['Target Adj Close']
-
-# # Note that we drop the expected EPS and acutal EPS since this is for a non-earnings day sequence, which means that EPS data is not relevant
-# # since we are not considered earnings per share (EPS) estimates
-# X_aapl = df_aapl_non.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
-
-# # Split the data into training and testing sets
-# X_train, X_test, y_train, y_test = train_test_split(X_aapl, y_aapl, test_size=0.2)
-
 # Specify the date to split the data
 split_date = '2012-9-01'
 
@@ -1524,11 +1580,7 @@ df_aapl['Date'] = pd.to_datetime(df_aapl['Date'])
 
 # Create training and testing sets
 train_set = df_aapl[df_aapl['Date'] < split_date]
-print("train_set")
-print(train_set)
 test_set = df_aapl[df_aapl['Date'] >= split_date]
-print("test_set")
-print(test_set)
 
 # Separate features (X) and target variable (y) for training and testing
 y_train = train_set['Target Adj Close']
@@ -1537,38 +1589,22 @@ X_train = train_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EP
 y_test_dnn = test_set['Target Adj Close']
 X_test = test_set.drop(['Adj Close', 'Target Adj Close', 'Date', 'Estimated EPS', 'Actual EPS', 'Target Date'], axis=1)
 
-print("X_train set")
-print(X_train)
-
-print("y_train set")
-print(y_train)
-
-print("X_test set")
-print(len(X_test))
-
-print("y_test set")
-print(y_test_dnn)
-
 # Create a StandardScaler
 scaler = StandardScaler()
-
 # Fit and transform the scaler on the training data
 X_train_scaled = scaler.fit_transform(X_train)
-
 # Transform the test data using the scaler
 X_test_scaled = scaler.transform(X_test)
 
+# Fit model and include early stopping to prevent overfitting
 model.fit(X_train_scaled, y_train, epochs=150, callbacks=[keras.callbacks.EarlyStopping(patience=5)])
 
 y_pred_dnn = model.predict(X_test_scaled)
 
 # Create a DataFrame to display actual values and predictions
 results_df_dnn = pd.DataFrame({'Predicted': y_pred_dnn.flatten(), 'Actual': y_test_dnn})
-print("results_df below!!")
-print(results_df_dnn)
 
 # Plot the predictions and actual results
-# Plot the actual difference between the predicted and actual adjusted close
 plt.scatter(results_df_dnn['Actual'], results_df_dnn['Predicted'], color='purple', label='Actual vs Predicted Adj. Close')
 
 # Plot a diagonal line representing perfect predictions
@@ -1580,12 +1616,11 @@ plt.title('Actual vs Predicted Adjusted Close')
 plt.legend()
 plt.show()
 
-# Custom predictor below
-fut_data = np.array([19.675358,19.903214,19.564644,19.696787,379985200,0])
+# Custom predictor below (takes in Open,High,Low,Close,Volume,Earnings)
+fut_data = np.array([134.080002,134.740005,131.720001,132.690002,99116600,0])
 fut_data_scaled = scaler.transform(fut_data.reshape(1,6))
 y_pred_fut = model.predict(fut_data_scaled.reshape(1,6), batch_size=1)
-print(f"2031 prediction: {y_pred_fut}")
-
+print(f"January 1st 2031 prediction: {y_pred_fut}")
 
 df_aapl_total = pd.read_csv('AAPL.csv')
 
@@ -1593,32 +1628,27 @@ df_aapl_total = df_aapl_total.dropna(subset=['Date'])
 
 X_aapl_total = df_aapl_total.drop(['Adj Close', 'Date', 'Estimated EPS', 'Actual EPS'], axis=1)
 
-# Create a new value for all predictions
+# Create a new value for all predictions (ranging through 2032)
 X_total_scaled = scaler.transform(X_aapl_total)
 
 predictions_total = model.predict(X_total_scaled)
 results_total_df_dnn = pd.DataFrame({'Predicted': predictions_total.flatten()})
-
-# print("incoming results for looop")
-# for i in range(len(predictions_total.flatten())):
-#   print(predictions_total[i][0])
+results_total_df_dnn['Date'] = df_aapl_total['Date']
+results_total_df_dnn['Target Date'] = results_total_df_dnn['Date'].shift(-2520)
 
 """# A Visual Between Actual Values, Linear Regressor, and DNN
 
-How well do the trends line up?
+How well do the trends line up? For the latter half of 2022 ranging from September through December?
 """
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-# Assuming results_df is your DataFrame containing predicted values
 results_df_dnn = pd.DataFrame({'Predicted': y_pred_dnn.flatten(), 'Actual': y_test_dnn, 'Target Date': test_set['Target Date']})
 
-print(len(results_df_dnn['Predicted']))
 # Filter out rows where 'Target Date' is not None
 results_df_dnn = results_df_dnn.dropna(subset=['Target Date'])
 
-print(results_df_lr)
 results_df_lr = results_df_lr.dropna(subset=['Actual'])
 
 # Convert 'Target Date' to datetime format
@@ -1627,9 +1657,6 @@ results_df_dnn['Target Date'] = pd.to_datetime(results_df_dnn['Target Date'])
 # Plot only DNN predictions
 plt.scatter(results_df_dnn['Target Date'], results_df_dnn['Predicted'], color='blue', label='DNN')
 
-print(len(results_df_lr[['Predicted']]))
-print(len(results_df_dnn['Target Date']))
-print(len(results_df_dnn['Predicted']))
 # Plot only LR predictions
 plt.scatter(results_df_dnn['Target Date'], results_df_lr['Predicted'], color='green', label='Linear Regressor')
 
@@ -1648,3 +1675,69 @@ plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
 plt.gcf().autofmt_xdate()  # Rotate date labels for better visibility
 
 plt.show()
+
+"""# What about through the end of 2032?"""
+
+# Assuming results_total_df_dnn is your DataFrame
+results_total_df_dnn['Date'] = pd.to_datetime(results_total_df_dnn['Date'])  # Convert 'Date' to datetime if not already
+results_total_df_dnn['Target Date'] = pd.to_datetime(results_total_df_dnn['Target Date'], errors='coerce')  # Convert 'Target Date' to datetime
+
+# Calculate the time difference (10 years) to shift the 'Date' column
+time_difference = pd.DateOffset(years=10)
+
+# Update 'Target Date' based on the pattern
+results_total_df_dnn['Target Date'] = results_total_df_dnn['Date'] + time_difference
+
+# If you want to replace 'NaT' (Not a Time) with 'None' (optional step)
+results_total_df_dnn['Target Date'] = results_total_df_dnn['Target Date'].where(results_total_df_dnn['Target Date'].notna(), None)
+
+
+
+
+print(results_total_df_dnn)
+
+# Plot only DNN predictions
+plt.scatter(results_total_df_dnn['Target Date'], results_total_df_dnn['Predicted'], color='blue', label='DNN')
+
+print(len(results_total_df_lr[['Predicted']]))
+print(len(results_total_df_dnn['Target Date']))
+print(len(results_total_df_dnn['Predicted']))
+
+# Plot only LR predictions
+plt.scatter(results_total_df_dnn['Target Date'], results_total_df_lr['Predicted'], color='green', label='Linear Regressor')
+
+# # Plot actual values
+# plt.scatter(results_df_dnn['Target Date'], results_df_dnn['Actual'], color='red', label='Actual')
+
+plt.xlabel('Target Date')
+plt.ylabel('Predicted/Actual Adjusted Close')
+plt.title('Predicted Adjusted Close vs Actual Values')
+plt.legend()
+
+# Set x-axis ticks to show only each year
+plt.gca().xaxis.set_major_locator(mdates.YearLocator())
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+
+plt.gcf().autofmt_xdate()  # Rotate date labels for better visibility
+
+plt.show()
+
+"""# Seem suspiciously close to the shape of Covid below?"""
+
+# Plot AAPL from 2010-2022
+plt.scatter(df_aapl['Date'], df_aapl['Adj Close'], color='black', label='Actual')
+
+plt.xlabel('Date')
+plt.ylabel('Actual Adjusted Close')
+plt.title('AAPL Stock Price')
+plt.legend()
+
+# Set x-axis ticks to show only each year
+plt.gca().xaxis.set_major_locator(mdates.YearLocator())
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+
+plt.gcf().autofmt_xdate()
+
+plt.show()
+
+"""Yeah, so it turns out the the LR and FNN ended up predicting the next decade as inspired by Covid, incredibly well, but not so great in terms of the shape of what the actual future graph of what AAPL stock will look like."""
